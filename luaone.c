@@ -224,8 +224,12 @@ int main(int argc, char **argv)
     for(p=luaone ; p->name != NULL ; p++ ){
         lua_pushstring(lua,p->name);
         lua_pushcfunction(lua,p->func);
-        lua_settable(lua,1);
+        lua_settable(lua,-3);
     }
+    lua_pushstring(lua,"null");
+    lua_pushboolean(lua,0);
+    /* lua_pushstring(lua,""); */
+    lua_settable(lua,-3);
     lua_setglobal(lua,"olua");
 
     for(argp=1 ; argp < argc ; argp++ ){
@@ -273,7 +277,8 @@ int main(int argc, char **argv)
     }
     lua_setglobal(lua,"arg");
 
-    lua_call(lua,0,0);
+    if( lua_pcall(lua,0,0,0) )
+        goto errpt;
     
     lua_close(lua);
     return EXIT_SUCCESS;

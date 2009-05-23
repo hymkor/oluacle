@@ -212,7 +212,6 @@ static int olua_handle_free(lua_State *lua)
     return 0;
 }
 
-
 static void olua_atexit()
 {
     if( errhp != NULL ){
@@ -511,6 +510,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
         struct olua_bind_buffer *b;
 
         if( lua_toboolean(lua,sp)==0 ){ /* nil or false => NULL */
+            b=olua_bind_buffer_new(0);
             b->indicator = OCI_IND_NULL ;
             status = OCIBindByPos( handle->h.stmthp , 
                           &b->bind ,
@@ -864,7 +864,9 @@ static int olua_fetch(lua_State *lua)
         lua_pushstring(lua,fetch_buffer->name);
         lua_pushinteger(lua,counter);
         if( fetch_buffer->ind != 0 ){
-            lua_pushnil(lua);
+            lua_getglobal(lua,"olua");
+            lua_getfield(lua,-1,"null");
+            lua_remove(lua,-2);
             DEBUG(puts("ind==0"));
         }else{
             switch( fetch_buffer->type ){
