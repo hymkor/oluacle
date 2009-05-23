@@ -128,7 +128,6 @@ struct olua_fetch_buffer {
         char *string;
         int  *integer;
         double *number;
-        OCIDate *ocidate;
     }u;
     struct olua_fetch_buffer *next;
 };
@@ -295,6 +294,8 @@ int olua_connect( lua_State *lua )
     }
     DEBUG( printf("olua_connect(\"%s\",\"%s\",\"%s\")\n" 
                 , user , passwd , dbname ) );
+
+    putenv("NLS_DATE_FORMAT=YYYY/MM/DD HH24:MI:SS");
 
     /* initialize handle for environment */
     if( envhp == NULL ){
@@ -653,8 +654,8 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             curr->type = SQLT_FLT;
             curr->size = sizeof(double);
         }else if( curr->type == SQLT_DAT ){
-            curr->type = SQLT_ODT;
-            curr->size = sizeof(OCIDate);
+            curr->type = SQLT_STR;
+            curr->size = 32;
         }
         /* —ÌˆæŠm•Û */
         if( (curr->u.pointor = malloc(curr->size+1))==NULL ){
@@ -775,95 +776,6 @@ static int olua_execute(lua_State *lua)
     }
 }
 
-static int olua_datetime_tostring_sub(lua_State *lua,int idx)
-{
-    const char *name[] = {
-        "year","month","day","hour","min","sec"
-    };
-    int value[6];
-    char buffer[30];
-    int i;
-
-    for(i=0 ; i < 6 ; i++ ){
-        lua_pushstring(lua,name[i]);
-        lua_gettable(lua,idx);
-        value[i] = lua_tointeger(lua,-1);
-        lua_pop(lua,1);
-    }
-    sprintf(buffer,"%04d/%02d/%02d %02d:%02d:%02d" ,
-        value[0] , value[1] , value[2] , 
-        value[3] , value[4] , value[5] );
-    lua_pushstring(lua,buffer);
-    return 1;
-}
-static int olua_datetime_tostring(lua_State *lua)
-{
-    return olua_datetime_tostring_sub(lua,1);
-}
-
-static int olua_datetime_concat(lua_State *lua)
-{
-    int i;
-
-    for(i=1;i<=2;i++){
-        if( ! lua_isstring(lua,i) && ! lua_isnumber(lua,i) ){
-            olua_datetime_tostring_sub(lua,i);
-        }else{
-            lua_pushvalue(lua,i);
-        }
-    }
-    lua_concat(lua,2);
-    return 1;
-}
-
-static void olua_push_oradatetime(
-    lua_State *lua , 
-    sb2 year ,
-    ub1 month ,
-    ub1 day ,
-    ub1 hour ,
-    ub1 min ,
-    ub1 sec )
-{
-    lua_newtable(lua);
-
-    lua_pushstring(lua,"year");
-    lua_pushinteger(lua,year);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"month");
-    lua_pushinteger(lua,month);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"day");
-    lua_pushinteger(lua,day);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"hour");
-    lua_pushinteger(lua,hour);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"min");
-    lua_pushinteger(lua,min);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"sec");
-    lua_pushinteger(lua,sec);
-    lua_settable(lua,-3);
-
-    lua_newtable(lua);
-    lua_pushstring(lua,"__tostring");
-    lua_pushcfunction(lua,olua_datetime_tostring);
-    lua_settable(lua,-3);
-
-    lua_pushstring(lua,"__concat");
-    lua_pushcfunction(lua,olua_datetime_concat);
-    lua_settable(lua,-3);
-
-    lua_setmetatable(lua,-2);
-}
-
-
 /** olua_fetch 
  *
  * stack-in:
@@ -931,31 +843,10 @@ static int olua_fetch(lua_State *lua)
                 lua_pushnumber(lua,*fetch_buffer->u.number);
                 break;
             case SQLT_ODT:
-                olua_push_oradatetime(lua,
-                    fetch_buffer->u.ocidate->OCIDateYYYY ,
-                    fetch_buffer->u.ocidate->OCIDateMM ,
-                    fetch_buffer->u.ocidate->OCIDateDD ,
-                    fetch_buffer->u.ocidate->OCIDateTime.OCITimeHH ,
-                    fetch_buffer->u.ocidate->OCIDateTime.OCITimeMI ,
-                    fetch_buffer->u.ocidate->OCIDateTime.OCITimeSS );
-                break;
             case SQLT_DATE:
             case SQLT_TIMESTAMP:
             case SQLT_TIMESTAMP_TZ:
             case SQLT_TIMESTAMP_LTZ:
-                {
-                    sb2 year;
-                    ub1 month,day,hour,min,sec;
-                    ub4 fsec;
-
-                    OCIDateTimeGetDate( envhp , errhp , fetch_buffer->u.pointor ,
-                                        &year , &month , &day );
-                    OCIDateTimeGetTime( envhp , errhp , fetch_buffer->u.pointor ,
-                                        &hour , &min , &sec , &fsec );
-                    olua_push_oradatetime(lua,year,month,day,hour,min,sec);
-                }
-                break;
-
             default:
                 lua_pushnil(lua);
                 break;
