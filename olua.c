@@ -775,6 +775,47 @@ static int olua_execute(lua_State *lua)
     }
 }
 
+static int olua_datetime_tostring_sub(lua_State *lua,int idx)
+{
+    const char *name[] = {
+        "year","month","day","hour","min","sec"
+    };
+    int value[6];
+    char buffer[30];
+    int i;
+
+    for(i=0 ; i < 6 ; i++ ){
+        lua_pushstring(lua,name[i]);
+        lua_gettable(lua,idx);
+        value[i] = lua_tointeger(lua,-1);
+        lua_pop(lua,1);
+    }
+    sprintf(buffer,"%04d/%02d/%02d %02d:%02d:%02d" ,
+        value[0] , value[1] , value[2] , 
+        value[3] , value[4] , value[5] );
+    lua_pushstring(lua,buffer);
+    return 1;
+}
+static int olua_datetime_tostring(lua_State *lua)
+{
+    return olua_datetime_tostring_sub(lua,1);
+}
+
+static int olua_datetime_concat(lua_State *lua)
+{
+    int i;
+
+    for(i=1;i<=2;i++){
+        if( ! lua_isstring(lua,i) && ! lua_isnumber(lua,i) ){
+            olua_datetime_tostring_sub(lua,i);
+        }else{
+            lua_pushvalue(lua,i);
+        }
+    }
+    lua_concat(lua,2);
+    return 1;
+}
+
 static void olua_push_oradatetime(
     lua_State *lua , 
     sb2 year ,
@@ -809,7 +850,19 @@ static void olua_push_oradatetime(
     lua_pushstring(lua,"sec");
     lua_pushinteger(lua,sec);
     lua_settable(lua,-3);
+
+    lua_newtable(lua);
+    lua_pushstring(lua,"__tostring");
+    lua_pushcfunction(lua,olua_datetime_tostring);
+    lua_settable(lua,-3);
+
+    lua_pushstring(lua,"__concat");
+    lua_pushcfunction(lua,olua_datetime_concat);
+    lua_settable(lua,-3);
+
+    lua_setmetatable(lua,-2);
 }
+
 
 /** olua_fetch 
  *
