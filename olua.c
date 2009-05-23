@@ -483,6 +483,12 @@ static int olua_prepare( lua_State *lua )
     lua_pushcfunction(lua,olua_fetch);
     lua_settable(lua,-3);
 
+    /* not to collect connection as garbage 
+     * while this statement used. */
+    lua_pushstring(lua,"connection");
+    lua_pushvalue(lua,1);
+    lua_settable(lua,-3);
+
     lua_settable(lua,-3); /* as __index */
     lua_setmetatable(lua,-2);
     return 1;
@@ -510,7 +516,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
 
             b->u.number = lua_tointeger(lua,sp);
 
-            DEBUG( printf("find %d(as number)\n",number) );
+            DEBUG( printf("find %d(as number)\n",b->u.number) );
             status = OCIBindByPos( handle->h.stmthp , 
                         &b->bind ,
                         errhp ,

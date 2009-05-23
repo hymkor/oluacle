@@ -210,6 +210,7 @@ int main(int argc, char **argv)
     struct luaone_s *p=NULL;
     FILE *fp=NULL;
     const char *emsg=NULL;
+    int argp=1;
 
     if( argc < 2 ){
         fprintf(stderr,"%s: lua frontend program for Windows\n",argv[0]);
@@ -227,36 +228,52 @@ int main(int argc, char **argv)
     }
     lua_setglobal(lua,"olua");
 
-    fp=find_luascript(argv[1]);
-    if( fp == NULL ){
-        fprintf(stderr,"%s: can not open '%s'.\n",argv[0],argv[1]);
-        return EXIT_FAILURE;
-    }
-    c=getc(fp);
-    /* drop first '@' */
-    if( c=='@' ){
-        /* drop 1-line : "@luaone %0 & exit' */
-        do{
+    for(argp=1 ; argp < argc ; argp++ ){
+        if( argv[argp][0] == '-' ){
+            if( argv[argp][1]=='e' ){
+                if( argv[argp][2] != '\0' ){
+                    if( luaL_loadstring(lua,&argv[argp][2]) )
+                        goto errpt;
+                    break;
+                }else if( argp+1 < argc ){
+                    if( luaL_loadstring(lua,argv[++argp]) )
+                        goto errpt;
+                    break;
+                }
+            }
+        }else{
+            fp=find_luascript(argv[argp]);
+            if( fp == NULL ){
+                fprintf(stderr,"%s: can not open '%s'.\n",argv[0],argv[argp]);
+                return EXIT_FAILURE;
+            }
             c=getc(fp);
-        }while( c != EOF && c != '\n' );
-    }else{
-        (ungetc)(c,fp);
+            /* drop first '@' */
+            if( c=='@' ){
+                /* drop 1-line : "@luaone %0 & exit' */
+                do{
+                    c=getc(fp);
+                }while( c != EOF && c != '\n' );
+            }else{
+                (ungetc)(c,fp);
+            }
+            rv = lua_load(lua,cmdloader,fp,argv[argp]);
+            fclose(fp);
+            if( rv != 0 )
+                goto errpt;
+            break;
+        }
     }
-    rv = lua_load(lua,cmdloader,fp,argv[1]);
-    fclose(fp);
-    if( rv != 0 )
-        goto errpt;
     
     lua_newtable(lua);
     for(j=0;j<argc;j++){
-        lua_pushinteger(lua,j-1);
+        lua_pushinteger(lua,j-argp);
         lua_pushstring(lua,argv[j]);
         lua_settable(lua,2);
     }
     lua_setglobal(lua,"arg");
 
-    if( lua_pcall(lua,0,0,0) != 0 )
-        goto errpt;
+    lua_call(lua,0,0);
     
     lua_close(lua);
     return EXIT_SUCCESS;
