@@ -874,12 +874,16 @@ static int olua_fetch(lua_State *lua)
     for( counter=1 ; fetch_buffer != NULL ; ++counter ){
         lua_pushstring(lua,fetch_buffer->name);
         lua_pushinteger(lua,counter);
-        if( fetch_buffer->ind != 0 ){
+        if( fetch_buffer->ind != 0 ){ /* NULL VALUE */
             lua_getfield(lua,1,"connection");
             lua_getfield(lua,-1,"null");
+            if( lua_isnil(lua,-1) ){
+                lua_pop(lua,1);
+                lua_pushboolean(lua,0);
+            }
             lua_remove(lua,-2);
             DEBUG(puts("ind==0"));
-        }else{
+        }else{ /* NOT NULL */
             switch( fetch_buffer->type ){
             case SQLT_STR:
             case SQLT_CHR:
