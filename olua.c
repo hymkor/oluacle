@@ -819,8 +819,16 @@ static int olua_execute(lua_State *lua)
         DEBUG( puts("LEAVE: olua_execute(OCI_STMT_SELECT)") );
         return 2;
     }else{
+        ub4 rowcount;
+        status = OCIAttrGet(stmthp->h.stmthp, (ub4) OCI_HTYPE_STMT,
+                    (dvoid *)&rowcount, (ub4 *)0, (ub4)OCI_ATTR_ROW_COUNT, errhp);
+        if( status != OCI_SUCCESS ){
+            checkerr(lua,errhp,status,"olua_execute(OCIAttrGet):fail on count ROW");
+            abort();
+        }
         DEBUG( puts("LEAVE: olua_execute(! OCI_STMT_SELECT)") );
-        return 0;
+        lua_pushinteger(lua,rowcount);
+        return 1;
     }
 }
 
