@@ -18,6 +18,9 @@ install:
 	cp $(EXENAME) /cygdrive/c/usr/bin/.
 clean:
 	rm *.o *.exe
+package :
+	tar jcvf olua-`date +%Y%m%d`.tar.bz2 *.exe test*
+
 test1: test1.lua
 	./$(EXENAME) test1.lua
 test2: test2.lua
