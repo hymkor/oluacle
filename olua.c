@@ -184,21 +184,29 @@ struct olua_handle *olua_handle_new(struct olua_handle *self)
     return self;
 }
 
-/* lua-function: olua_handle_free
+/* lua-function: olua_handle_gc
  *  stack-in
  *    (+1) userdata-object for oci-handle
  *  return
  *    nothing
  */
-static int olua_handle_free(lua_State *lua)
+static int olua_handle_gc(lua_State *lua)
 {
     struct olua_handle *handle;
     
-    lua_getfield(lua,1,"handle");
-    handle = lua_touserdata(lua,-1);
-    lua_pop(lua,1);
+    if( lua_istable(lua,1) ){
+        lua_getfield(lua,1,"handle");
+        handle = lua_touserdata(lua,-1);
+        lua_pop(lua,1);
+    }else if( lua_isuserdata(lua,1) ){
+        handle = lua_touserdata(lua,-1);
+    }else{
+        lua_pushstring(lua,"olua_handle_gc: invalid statement-handle in parameter");
+        lua_error(lua);
+        abort();
+    }
 
-    DEBUG( printf("ENTER: olua_handle_free(%p)\n",handle) );
+    DEBUG( printf("ENTER: olua_handle_gc(%p)\n",handle) );
     if( handle->h.pointor != NULL ){
         DEBUG( printf("OCIHandleFree(%p)\n",handle->h.pointor) );
         OCIHandleFree( handle->h.pointor , handle->type );
@@ -208,7 +216,7 @@ static int olua_handle_free(lua_State *lua)
     handle->bind_buffer = NULL;
     olua_fetch_buffer_free( handle->fetch_buffer );
     handle->fetch_buffer = NULL;
-    DEBUG( puts("LEAVE: olua_handle_free()") );
+    DEBUG( puts("LEAVE: olua_handle_gc()") );
     return 0;
 }
 
@@ -407,8 +415,14 @@ static int olua_prepare( lua_State *lua )
     lua_newtable(lua);
     lua_pushstring(lua,"handle");
     handle = olua_handle_new( lua_newuserdata(lua,sizeof(struct olua_handle)));
-    lua_settable(lua,-3);
     assert( handle != NULL );
+
+    lua_newtable(lua); /* meta-table for user object */
+    lua_pushstring(lua,"__gc");/* destructor's name */
+    lua_pushcfunction(lua,olua_handle_gc); /* destructor's func */
+    lua_settable(lua,-3); /* assign destructor to meta table */
+    lua_setmetatable(lua,-2); /* assign metatable to user-object */
+    lua_settable(lua,-3);  /* assign user-object to instance */
 
     DEBUG( puts("CALL: OCIHandleAlloc") );
     status = OCIHandleAlloc(
@@ -477,15 +491,6 @@ static int olua_prepare( lua_State *lua )
     lua_pushvalue(lua,1);
     lua_settable(lua,-3);
 
-    /* meta-table */
-    lua_newtable(lua);
-
-    /* destructor */
-    lua_pushstring(lua,"__gc");
-    lua_pushcfunction(lua,olua_handle_free);
-    lua_settable(lua,-3);
-
-    lua_setmetatable(lua,-2);
     return 1;
 }
 
@@ -848,7 +853,8 @@ static int olua_fetch(lua_State *lua)
             OCI_DEFAULT );
 
     if( status == OCI_NO_DATA){
-        olua_handle_free(lua);
+        stmthp=lua_touserdata(lua,-1);
+        olua_handle_gc(lua);
         lua_pushnil(lua);
         return 1;
     }
