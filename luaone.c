@@ -226,10 +226,6 @@ int main(int argc, char **argv)
         lua_pushcfunction(lua,p->func);
         lua_settable(lua,-3);
     }
-    lua_pushstring(lua,"null");
-    lua_pushboolean(lua,0);
-    /* lua_pushstring(lua,""); */
-    lua_settable(lua,-3);
     lua_setglobal(lua,"olua");
 
     for(argp=1 ; argp < argc ; argp++ ){

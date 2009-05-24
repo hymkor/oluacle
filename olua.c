@@ -228,6 +228,19 @@ static void olua_atexit()
     }
 }
 
+static void *olua_tohandle(lua_State *lua,int index)
+{
+    void *userdata;
+    if( lua_istable(lua,index) ){
+        lua_getfield(lua,index,"handle");
+        userdata=lua_touserdata(lua,-1);
+        lua_pop(lua,1);
+    }else{
+        userdata=lua_touserdata(lua,index);
+    }
+    return userdata;
+}
+
 static int olua_disconnect(lua_State *lua)
 {
     void *userdata;
@@ -236,7 +249,7 @@ static int olua_disconnect(lua_State *lua)
 
     DEBUG( puts("olua_disconnect()") );
     
-    if( (userdata=lua_touserdata(lua,1)) == NULL ){
+    if( (userdata=olua_tohandle(lua,1)) == NULL ){
         lua_pushstring(lua,"olua_disconnect: invalid parameter");
         lua_error(lua);
         abort();
@@ -256,7 +269,7 @@ static int olua_disconnect(lua_State *lua)
 
 static int olua_rollback(lua_State *lua)
 {
-    OCISvcCtx **svchp=lua_touserdata(lua,1);
+    OCISvcCtx **svchp=olua_tohandle(lua,1);
     sword status;
 
     DEBUG( puts("ENTER olua_rollback()") );
@@ -270,7 +283,7 @@ static int olua_rollback(lua_State *lua)
 
 static int olua_commit(lua_State *lua)
 {
-    OCISvcCtx **svchp=lua_touserdata(lua,1);
+    OCISvcCtx **svchp=olua_tohandle(lua,1);
     sword status;
 
     DEBUG( puts("ENTER olua_commit()") );
@@ -337,50 +350,56 @@ int olua_connect( lua_State *lua )
         abort();
     }
 
-    if( svchp == NULL ){
+    if( svchp == NULL )
         return 0;
-    }else if( (userdata=lua_newuserdata(lua,sizeof(OCISvcCtx*))) == NULL){
-        OCILogoff( svchp , errhp );
-        return 0;
+    
+    /* create instance */
+    if( lua_istable(lua,4) ){
+        lua_pushvalue(lua,4);
     }else{
-        memcpy( userdata , &svchp , sizeof(OCISvcCtx*) );
-        DEBUG( puts("successfully return 1") );
-
         lua_newtable(lua);
-
-        lua_pushstring(lua,"__gc");
-        lua_pushcfunction(lua,olua_disconnect);
-        lua_settable(lua,-3);
-
-        lua_pushstring(lua,"__index");
-
-        lua_newtable(lua);
-
-        /* method: exec */
-        lua_pushstring(lua,"exec");
-        lua_pushcfunction(lua,olua_exec);
-        lua_settable(lua,-3);
-
-        /* method: prepare */
-        lua_pushstring(lua,"prepare");
-        lua_pushcfunction(lua,olua_prepare);
-        lua_settable(lua,-3);
-
-        /* method: commit */
-        lua_pushstring(lua,"commit");
-        lua_pushcfunction(lua,olua_commit);
-        lua_settable(lua,-3);
-
-        /* method: commit */
-        lua_pushstring(lua,"rollback");
-        lua_pushcfunction(lua,olua_rollback);
-        lua_settable(lua,-3);
-
-        lua_settable(lua,-3); /* as __index */
-        lua_setmetatable(lua,-2);
-
-        return 1;
     }
+
+    /* member: handle */
+    lua_pushstring(lua,"handle");
+    if( (userdata=lua_newuserdata(lua,sizeof(OCISvcCtx*))) == NULL){
+        OCILogoff( svchp , errhp );
+        lua_pushstring(lua,"memory allocation error for userdata OCISvcCtx");
+        lua_error(lua);
+        abort();
+    }
+    memcpy( userdata , &svchp , sizeof(OCISvcCtx*) );
+
+    /* meta-table */
+    lua_newtable(lua);
+    lua_pushstring(lua,"__gc");
+    lua_pushcfunction(lua,olua_disconnect);
+    lua_settable(lua,-3);
+    lua_setmetatable(lua,-2);
+    lua_settable(lua,-3);
+
+    /* method: exec */
+    lua_pushstring(lua,"exec");
+    lua_pushcfunction(lua,olua_exec);
+    lua_settable(lua,-3);
+
+    /* method: prepare */
+    lua_pushstring(lua,"prepare");
+    lua_pushcfunction(lua,olua_prepare);
+    lua_settable(lua,-3);
+
+    /* method: commit */
+    lua_pushstring(lua,"commit");
+    lua_pushcfunction(lua,olua_commit);
+    lua_settable(lua,-3);
+
+    /* method: commit */
+    lua_pushstring(lua,"rollback");
+    lua_pushcfunction(lua,olua_rollback);
+    lua_settable(lua,-3);
+
+    DEBUG( puts("successfully return 1") );
+    return 1;
 }
 
 
@@ -397,10 +416,10 @@ static int olua_prepare( lua_State *lua )
     sword status;
     ub4 prefetch = 0;
 
-    void *userdata  = lua_touserdata(lua,1);
+    void *userdata  = olua_tohandle(lua,1);
     const char *sql = lua_tostring(lua,2);
 
-    assert( lua_isuserdata(lua,1) );
+    assert( lua_isuserdata(lua,1) || lua_istable(lua,1) );
     assert( lua_isstring(lua,2) );
 
     if( userdata == NULL || sql == NULL ){
@@ -501,12 +520,8 @@ static int olua_prepare( lua_State *lua )
 static int olua_bind_core( lua_State *lua , int nbinds )
 {
     int i;
-    struct olua_handle *handle;
+    struct olua_handle *handle=olua_tohandle(lua,-nbinds-1);
     sword status;
-    
-    lua_getfield(lua,-nbinds-1,"handle");
-    handle = lua_touserdata(lua,-1);
-    lua_pop(lua,1);
 
     for(i=0;i<nbinds;i++){
         DEBUG( printf("try bind %d\n",i+1));
@@ -746,8 +761,8 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
  */
 static int olua_execute(lua_State *lua)
 {
-    struct olua_handle *stmthp;
-    OCISvcCtx *conn;
+    struct olua_handle *stmthp = olua_tohandle(lua,-1);
+    OCISvcCtx **conn;
     sword status;
     ub2 type;
     ub4 iters;
@@ -756,19 +771,14 @@ static int olua_execute(lua_State *lua)
 
     /* get connection */
     lua_getfield(lua,-1,"connection");
-    conn = *(OCISvcCtx **)lua_touserdata(lua,-1);
+    conn = olua_tohandle(lua,-1);
     lua_pop(lua,1);
     
-    if( conn == NULL ){
+    if( conn == NULL  || *conn == NULL ){
         lua_pushstring(lua,"olua_execute: conn is nil.");
         lua_error(lua);
         abort();
     }
-
-    /* get handle */
-    lua_getfield(lua,-1,"handle");
-    stmthp = lua_touserdata(lua,-1);
-    lua_pop(lua,1);
 
     if( stmthp == NULL || stmthp->h.pointor == NULL){
         lua_pushstring(lua,"olua_execute: stmt handle is nil.");
@@ -797,7 +807,7 @@ static int olua_execute(lua_State *lua)
         iters = 1;
 
     DEBUG( puts("call OCIStmtExecute()") );
-    status = OCIStmtExecute(conn,stmthp->h.stmthp,errhp,iters,0,NULL,NULL,OCI_DEFAULT);
+    status = OCIStmtExecute(*conn,stmthp->h.stmthp,errhp,iters,0,NULL,NULL,OCI_DEFAULT);
     if( status != OCI_SUCCESS ){
         checkerr(lua,errhp,status,"olua_execute(OCIStmtExecute)");
         abort();
@@ -823,18 +833,13 @@ static int olua_execute(lua_State *lua)
  */
 static int olua_fetch(lua_State *lua)
 {
-    struct olua_handle *stmthp=NULL;
+    struct olua_handle *stmthp=olua_tohandle(lua,1);
     struct olua_fetch_buffer *fetch_buffer=NULL;
 
     sword status;
     int counter=0;
 
     DEBUG( puts("ENTER: olua_fetch()") );
-
-    /* statement-handle */
-    lua_getfield(lua,1,"handle");
-    stmthp=lua_touserdata(lua,-1);
-    lua_pop(lua,1);
 
     if( stmthp == NULL ){
         lua_pushstring(lua,"error: invalid parameter(stmthp==NULL)");
@@ -870,7 +875,7 @@ static int olua_fetch(lua_State *lua)
         lua_pushstring(lua,fetch_buffer->name);
         lua_pushinteger(lua,counter);
         if( fetch_buffer->ind != 0 ){
-            lua_getglobal(lua,"olua");
+            lua_getfield(lua,1,"connection");
             lua_getfield(lua,-1,"null");
             lua_remove(lua,-2);
             DEBUG(puts("ind==0"));
