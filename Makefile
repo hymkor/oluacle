@@ -2,28 +2,35 @@
 ifndef ORACLE_HOME
 ORACLE_HOME=/cygdrive/c/oraclexe/app/oracle/product/10.2.0/server
 endif
-ifndef LUADIR
-LUADIR=../lua-5.1.4
-endif
-EXENAME=olua.exe
+HOME=/usr/local
 #####################
 
-$(EXENAME) : olua.o luaone.o
-	$(CC) -mno-cygwin -o $@ $^ -llua -L$(LUADIR)/src -loci \
-		-L$(ORACLE_HOME)/oci/lib/msvc
+# mingw standalone executable
+oluacle.exe : olua.o luaone.o
+	$(CC) -mno-cygwin -o $@ $^ -llua -L$(HOME)/lib -loci -L$(ORACLE_HOME)/oci/lib/msvc
+
+# mingw-dynamic library
+oluacle.dll : olua.o oluacle.def
+	$(CC) -shared -mno-cygwin -o $@ $^ -Wl,--exclude-libs,ALL -llua51 -L$(HOME)/lib -loci -L$(ORACLE_HOME)/oci/lib/msvc 
 
 olua.o : olua.c
 luaone.o : luaone.c 
 
 .c.o :
-	$(CC) -mno-cygwin -I$(LUADIR)/src -I$(ORACLE_HOME)/oci/include -Wall -c $<
+	$(CC) -mno-cygwin -I$(HOME)/include -I$(ORACLE_HOME)/oci/include -Wall -c $<
 
-install:
-	cp $(EXENAME) /cygdrive/c/usr/bin/.
+install-cygbin:
+	cp oluacle.exe $(HOME)/bin/.
+install-cygdll:
+	cp oluacle.dll $(HOME)/lib/lua/5.1/.
+
+# install to Lua for Windows
+install-windll:
+	cp oluacle.dll "/cygdrive/c/Program Files/Lua/5.1/clibs/."
 clean:
-	rm *.o *.exe
+	rm *.o *.exe *.dll
 package :
-	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 *.exe test*
+	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 *.exe *.dll test*
 
 test1: test1.lua
 	./$(EXENAME) test1.lua

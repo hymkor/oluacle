@@ -226,7 +226,7 @@ int main(int argc, char **argv)
         lua_pushcfunction(lua,p->func);
         lua_settable(lua,-3);
     }
-    lua_setglobal(lua,"olua");
+    lua_setglobal(lua,"oluacle");
 
     for(argp=1 ; argp < argc ; argp++ ){
         if( argv[argp][0] == '-' ){

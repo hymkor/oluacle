@@ -510,6 +510,11 @@ static int olua_prepare( lua_State *lua )
     lua_pushvalue(lua,1);
     lua_settable(lua,-3);
 
+    /* member: sql-string */
+    lua_pushstring(lua,"sql");
+    lua_pushvalue(lua,2);
+    lua_settable(lua,-3);
+
     return 1;
 }
 
@@ -991,4 +996,14 @@ static int olua_exec(lua_State *lua)
     assert( lua_gettop(lua) == 1 );
 
     return olua_execute(lua);
+}
+
+int luaopen_oluacle(lua_State *lua)
+{
+    lua_newtable(lua);
+    lua_pushstring(lua,"new");
+    lua_pushcfunction(lua,olua_connect);
+    lua_settable(lua,-3);
+    lua_setglobal(lua,"oluacle");
+    return 0;
 }
