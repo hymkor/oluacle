@@ -630,7 +630,6 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
     sb4 parm_status;
     dvoid *mypard;
     ub4 counter=0;
-    const char *typename;
 
     struct olua_fetch_buffer dummyfirst;
     struct olua_fetch_buffer *curr=&dummyfirst;
@@ -647,6 +646,8 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
                 ++counter )) == OCI_SUCCESS )
     {
         sword status;
+        const char *colname;
+        ub4 colname_len;
 
         if( (curr->next = olua_fetch_buffer_new(NULL)) == NULL ){
             olua_fetch_buffer_free( dummyfirst.next );
@@ -706,8 +707,8 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
         /* �񖼎擾 */
         status = OCIAttrGet(
             (dvoid*)mypard, (ub4)OCI_DTYPE_PARAM ,
-            (dvoid*)&typename ,
-            (ub4)0 ,
+            (dvoid*)&colname ,
+            &colname_len ,
             (ub4)OCI_ATTR_NAME ,
             errhp 
         );
@@ -716,7 +717,15 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             checkerr(lua,errhp,status,"olua_fetch_buffer_alloc(OCIAttrGet)");
             abort();
         }
-        curr->name = strdup( typename );
+        if( (curr->name = malloc( colname_len+1 )) == NULL ){
+            olua_fetch_buffer_free( dummyfirst.next );
+            lua_pushstring(lua,"olua_fetch_buffer_alloc(): memory allocation error");
+            lua_error(lua);
+            abort();
+        }
+        memcpy( curr->name , colname , colname_len ); 
+        curr->name[ colname_len ] = '\0';
+        DEBUG( printf("COLUMN=[%.*s](%d)\n" , colname_len , colname , colname_len ));
     }
     DEBUG(puts("ENTER: OCIDefineByPos"));
 
