@@ -1,6 +1,10 @@
 ### configuration ###
+ifndef ORACLE_HOME
 ORACLE_HOME=/cygdrive/c/oraclexe/app/oracle/product/10.2.0/server
+endif
+ifndef LUADIR
 LUADIR=../lua-5.1.4
+endif
 EXENAME=olua.exe
 #####################
 
@@ -19,7 +23,7 @@ install:
 clean:
 	rm *.o *.exe
 package :
-	tar jcvf olua-`date +%Y%m%d`.tar.bz2 *.exe test*
+	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 *.exe test*
 
 test1: test1.lua
 	./$(EXENAME) test1.lua
