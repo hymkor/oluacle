@@ -33,12 +33,12 @@ package :
 	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 *.exe *.dll test*
 
 test1: test1.lua
-	./$(EXENAME) test1.lua
+	./oluacle test1.lua
 test2: test2.lua
-	./$(EXENAME) test2.lua
+	./oluacle test2.lua
 test3: test3.lua
-	./$(EXENAME) test3.lua
+	./oluacle test3.lua
 test4: test4.lua
-	./$(EXENAME) test4.lua
+	./oluacle test4.lua
 
 # vim:set noet ts=8 sw=8:
