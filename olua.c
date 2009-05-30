@@ -308,7 +308,16 @@ int olua_connect( lua_State *lua )
     OCISvcCtx *svchp=NULL;
     const char *user   = luaL_checkstring(lua,1);
     const char *passwd = luaL_checkstring(lua,2);
-    const char *dbname = luaL_checkstring(lua,3);
+    const char *dbname = NULL;
+    int opt;
+
+    if( lua_isstring(lua,3) ){
+        dbname = lua_tostring(lua,3);
+        opt=4;
+    }else{
+        dbname = "";
+        opt=3;
+    }
 
     DEBUG( printf("olua_connect(\"%s\",\"%s\",\"%s\")\n" 
                 , user , passwd , dbname ) );
@@ -350,8 +359,8 @@ int olua_connect( lua_State *lua )
         return 0;
     
     /* create instance */
-    if( lua_istable(lua,4) ){
-        lua_pushvalue(lua,4);
+    if( lua_istable(lua,opt) ){
+        lua_pushvalue(lua,opt);
     }else{
         lua_newtable(lua);
     }

@@ -5,6 +5,8 @@ endif
 HOME=/usr/local
 #####################
 
+all : oluacle.exe oluacle.dll
+
 # mingw standalone executable
 oluacle.exe : olua.o luaone.o
 	$(CC) -mno-cygwin -o $@ $^ -llua -L$(HOME)/lib -loci -L$(ORACLE_HOME)/oci/lib/msvc
