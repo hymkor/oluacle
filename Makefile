@@ -43,4 +43,7 @@ test3: test3.lua
 test4: test4.lua
 	./oluacle test4.lua
 
+memorytest:
+	./oluacle test1.lua 2>&1 | gawk '/ALLOC:/{ m[$$2]++ } /FREE:/{ m[$$2]-- } END{for(i in m){ if(m[i]){ print "NG:",i,m[i] }else{ print "OK:",i,m[i] }}}'
+
 # vim:set noet ts=8 sw=8:

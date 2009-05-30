@@ -12,10 +12,29 @@
 #define TNAME_CONNECTION "oluacle.connection"
 #define TNAME_ENVIRON    "oluacle.environ"
 
-#if 0
+#ifdef DEBUG
+#  undef  DEBUG
 #  define DEBUG(x) (x,fflush(stdout))
 #else
 #  define DEBUG(x) ;
+#endif
+
+#ifdef MEMORY_TEST
+void *MALLOC(size_t size)
+{
+    void *p=(malloc)(size);
+    fprintf(stderr,"ALLOC: %p\n",p);
+    fflush(stderr);
+    return p;
+}
+void FREE(void *p)
+{
+    fprintf(stderr,"FREE: %p\n",p);
+    fflush(stderr);
+    (free)(p);
+}
+#define malloc(x) MALLOC(x)
+#define free(p) FREE(p)
 #endif
 
 static sword checkerr( lua_State *lua , OCIError *errhp , sword status )
@@ -413,9 +432,24 @@ int olua_connect( lua_State *lua )
     lua_pushcfunction(lua,olua_commit);
     lua_settable(lua,-3);
 
-    /* method: commit */
+    /* method: rollback */
     lua_pushstring(lua,"rollback");
     lua_pushcfunction(lua,olua_rollback);
+    lua_settable(lua,-3);
+
+    /* method: disconnect */
+    lua_pushstring(lua,"disconnect");
+    lua_pushcfunction(lua,olua_disconnect);
+    lua_settable(lua,-3);
+
+    /* method: logoff */
+    lua_pushstring(lua,"logoff");
+    lua_pushcfunction(lua,olua_disconnect);
+    lua_settable(lua,-3);
+
+    /* method: close */
+    lua_pushstring(lua,"close");
+    lua_pushcfunction(lua,olua_disconnect);
     lua_settable(lua,-3);
 
     DEBUG( puts("successfully return 1") );
