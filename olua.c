@@ -1,9 +1,3 @@
-#if 0
-#  define DEBUG(x) (x,fflush(stdout))
-#else
-#  define DEBUG(x) ;
-#endif
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +11,12 @@
 #define TNAME_STATEMENT  "oluacle.statement"
 #define TNAME_CONNECTION "oluacle.connection"
 #define TNAME_ENVIRON    "oluacle.environ"
+
+#if 0
+#  define DEBUG(x) (x,fflush(stdout))
+#else
+#  define DEBUG(x) ;
+#endif
 
 static sword checkerr( lua_State *lua , OCIError *errhp , sword status )
 {
@@ -118,7 +118,7 @@ static struct olua_bind_buffer *olua_bind_buffer_new( size_t size )
     return p;
 }
 
-static void olua_bind_buffer_free( struct olua_bind_buffer *p )
+static void olua_bind_buffer_gc( struct olua_bind_buffer *p )
 {
     while( p != NULL ){
         struct olua_bind_buffer *q=p->next;
@@ -157,9 +157,9 @@ struct olua_fetch_buffer *olua_fetch_buffer_new(struct olua_fetch_buffer *self)
     return self;
 }
 
-static void olua_fetch_buffer_free(struct olua_fetch_buffer *p)
+static void olua_fetch_buffer_gc(struct olua_fetch_buffer *p)
 {
-    DEBUG( printf("ENTER: olua_fetch_buffer_free(%p)\n",p ));
+    DEBUG( printf("ENTER: olua_fetch_buffer_gc(%p)\n",p ));
     while( p != NULL ){
         struct olua_fetch_buffer *q=p->next;
         if( p->u.pointor != NULL )
@@ -169,71 +169,66 @@ static void olua_fetch_buffer_free(struct olua_fetch_buffer *p)
         free(p);
         p=q;
     }
-    DEBUG( puts("LEAVE: olua_fetch_buffer_free()"));
+    DEBUG( puts("LEAVE: olua_fetch_buffer_gc()"));
 }
 
-struct olua_handle {
-    int type;
-    union{
-        dvoid   *pointor;
-        OCIStmt *stmthp;
-    }h;
+struct olua_statement {
+    OCIStmt  *stmthp;
     OCIError *errhp;
     struct olua_bind_buffer  *bind_buffer;
     struct olua_fetch_buffer *fetch_buffer;
 };
 
-struct olua_handle *olua_handle_new(struct olua_handle *self)
+struct olua_statement *olua_statement_new(struct olua_statement *self)
 {
-    if( self == NULL && (self = malloc( sizeof(struct olua_handle) ))==NULL ){
+    if( self == NULL && (self = malloc( sizeof(struct olua_statement) ))==NULL ){
         return NULL;
     }
-    self->type = OCI_HTYPE_STMT;
-    self->h.pointor    = NULL;
+    self->stmthp       = NULL;
     self->errhp        = NULL;
     self->bind_buffer  = NULL;
     self->fetch_buffer = NULL;
     return self;
 }
 
-/* lua-function: olua_handle_gc
+/* lua-function: olua_statement_gc
  *  stack-in
  *    (+1) userdata-object for oci-handle
  *  return
  *    nothing
  */
-static int olua_handle_gc(lua_State *lua)
+static int olua_statement_gc(lua_State *lua)
 {
-    struct olua_handle *handle;
+    struct olua_statement *statement;
     
     if( lua_istable(lua,1) ){
         lua_getfield(lua,1,"handle");
-        handle = lua_touserdata(lua,-1);
+        statement = lua_touserdata(lua,-1);
         lua_pop(lua,1);
     }else if( lua_isuserdata(lua,1) ){
-        handle = lua_touserdata(lua,-1);
+        statement = lua_touserdata(lua,-1);
     }else{
-        return luaL_error(lua,"olua_handle_gc: invalid statement-handle in parameter");
+        return luaL_error(lua,"olua_statement_gc: invalid statement-handle in parameter");
     }
 
-    DEBUG( printf("ENTER: olua_handle_gc(%p)\n",handle) );
+    DEBUG( printf("ENTER: olua_statement_gc(%p)\n",statement) );
     /* statement-handle */
-    if( handle->h.pointor != NULL ){
-        DEBUG( printf("OCIHandleFree(%p)\n",handle->h.pointor) );
-        OCIHandleFree( handle->h.pointor , handle->type );
-        handle->h.pointor = NULL;
+    if( statement->stmthp != NULL ){
+        DEBUG( printf("OCIHandleFree(%p)\n",statement->stmthp) );
+        OCIHandleFree( statement->stmthp , OCI_HTYPE_STMT );
+        statement->stmthp = NULL;
     }
     /* error handle */
-    if( handle->errhp != NULL ){
-        OCIHandleFree( handle->errhp , OCI_HTYPE_ERROR );
-        handle->errhp = NULL;
+    if( statement->errhp != NULL ){
+        OCIHandleFree( statement->errhp , OCI_HTYPE_ERROR );
+        statement->errhp = NULL;
     }
 
-    olua_bind_buffer_free( handle->bind_buffer );
-    handle->bind_buffer = NULL;
-    olua_fetch_buffer_free( handle->fetch_buffer );
-    handle->fetch_buffer = NULL;
-    DEBUG( puts("LEAVE: olua_handle_gc()") );
+    olua_bind_buffer_gc( statement->bind_buffer );
+    statement->bind_buffer = NULL;
+    olua_fetch_buffer_gc( statement->fetch_buffer );
+    statement->fetch_buffer = NULL;
+    DEBUG( puts("LEAVE: olua_statement_gc()") );
     return 0;
 }
 
@@ -437,7 +432,7 @@ int olua_connect( lua_State *lua )
  */
 static int olua_prepare( lua_State *lua )
 {
-    struct olua_handle *handle=NULL;
+    struct olua_statement *statement=NULL;
     sword status;
     ub4 prefetch = 0;
     OCIEnv *envhp = olua_envhp(lua);
@@ -450,14 +445,14 @@ static int olua_prepare( lua_State *lua )
     /*** new statement object ***/
     lua_newtable(lua);
     lua_pushstring(lua,"handle");
-    handle = olua_handle_new( lua_newuserdata(lua,sizeof(struct olua_handle)));
-    assert( handle != NULL );
+    statement = olua_statement_new( lua_newuserdata(lua,sizeof(struct olua_statement)));
+    assert( statement != NULL );
 
-    OCIHandleAlloc(envhp , (dvoid**)&handle->errhp , OCI_HTYPE_ERROR , 0 , NULL );
+    OCIHandleAlloc(envhp , (dvoid**)&statement->errhp , OCI_HTYPE_ERROR , 0 , NULL );
 
     if( luaL_newmetatable(lua,TNAME_STATEMENT) ){
         lua_pushstring(lua,"__gc");/* destructor's name */
-        lua_pushcfunction(lua,olua_handle_gc); /* destructor's func */
+        lua_pushcfunction(lua,olua_statement_gc); /* destructor's func */
         lua_settable(lua,-3); /* assign destructor to meta table */
         lua_pushstring(lua,"__metatable");
         lua_pushstring(lua,TNAME_STATEMENT);
@@ -469,38 +464,38 @@ static int olua_prepare( lua_State *lua )
     DEBUG( puts("CALL: OCIHandleAlloc") );
     status = OCIHandleAlloc(
         envhp ,
-        &handle->h.pointor ,
-        handle->type ,
+        (dvoid**)&statement->stmthp ,
+        OCI_HTYPE_STMT  ,
         0 ,
         NULL );
     DEBUG( puts("EXIT: OCIHandleAlloc") );
 
     if( status != OCI_SUCCESS ){
-        checkerr(lua,handle->errhp,status);
+        checkerr(lua,statement->errhp,status);
         abort();
     }
 
-    status = OCIAttrSet(handle->h.stmthp, OCI_HTYPE_STMT,
+    status = OCIAttrSet(statement->stmthp, OCI_HTYPE_STMT,
 		(dvoid *)&prefetch, (ub4)0, (ub4)OCI_ATTR_PREFETCH_ROWS,
-		handle->errhp);
+		statement->errhp);
 
     if( status != OCI_SUCCESS ){
-        checkerr(lua,handle->errhp,status);
+        checkerr(lua,statement->errhp,status);
         abort();
     }
 
     DEBUG( printf("SQL=[%s]\n",sql) );
     status = OCIStmtPrepare(
-        handle->h.stmthp , handle->errhp, (CONST text*)sql , (ub4)strlen(sql) ,
+        statement->stmthp , statement->errhp, (CONST text*)sql , (ub4)strlen(sql) ,
         (ub4)OCI_NTV_SYNTAX , (ub4)OCI_DEFAULT );
 
     DEBUG( printf("OCIStmtPrepare()=%d\n",status));
 
     if( status != OCI_SUCCESS ){
-        checkerr(lua,handle->errhp,status);
+        checkerr(lua,statement->errhp,status);
         abort();
     }
-    DEBUG( printf("Statement-handle=%p\n",handle->h.stmthp) );
+    DEBUG( printf("Statement-handle=%p\n",statement->stmthp) );
     DEBUG( puts("LEAVE: olua_prepare(success)"));
 
     /* stack:
@@ -548,21 +543,21 @@ static int olua_prepare( lua_State *lua )
 static int olua_bind_core( lua_State *lua , int nbinds )
 {
     int i;
-    struct olua_handle *handle=olua_tohandle(lua,-nbinds-1,TNAME_STATEMENT);
+    struct olua_statement *statement=olua_tohandle(lua,-nbinds-1,TNAME_STATEMENT);
     sword status;
 
     for(i=0;i<nbinds;i++){
         DEBUG( printf("try bind %d\n",i+1));
         int sp=-nbinds+i;
-        DEBUG( printf("Statement-handle=%p\n",handle->h.stmthp) );
+        DEBUG( printf("Statement-handle=%p\n",statement->stmthp) );
         struct olua_bind_buffer *b;
 
         if( lua_toboolean(lua,sp)==0 ){ /* nil or false => NULL */
             b=olua_bind_buffer_new(0);
             b->indicator = OCI_IND_NULL ;
-            status = OCIBindByPos( handle->h.stmthp , 
+            status = OCIBindByPos( statement->stmthp , 
                           &b->bind ,
-                          handle->errhp ,
+                          statement->errhp ,
                           i+1 , 
                           (dvoid*)b->u.buffer , /* valuep */
                           1 , /* value_sz */
@@ -582,9 +577,9 @@ static int olua_bind_core( lua_State *lua , int nbinds )
             b->u.number = lua_tointeger(lua,sp);
 
             DEBUG( printf("find %d(as number)\n",b->u.number) );
-            status = OCIBindByPos( handle->h.stmthp , 
+            status = OCIBindByPos( statement->stmthp , 
                         &b->bind ,
-                        handle->errhp ,
+                        statement->errhp ,
                         i+1 , /* position */
                         (dvoid *)&b->u.number , /* valuep */
                         (sword)sizeof(sword) ,  /* value_sz */
@@ -608,9 +603,9 @@ static int olua_bind_core( lua_State *lua , int nbinds )
             strcpy( b->u.buffer , string );
 
             DEBUG( printf("find '%s' (as string)\n",string) );
-            status = OCIBindByPos( handle->h.stmthp , 
+            status = OCIBindByPos( statement->stmthp , 
                           &b->bind ,
-                          handle->errhp ,
+                          statement->errhp ,
                           i+1 , 
                           (dvoid*)b->u.buffer , /* valuep */
                           len+1 , /* value_sz */
@@ -625,11 +620,11 @@ static int olua_bind_core( lua_State *lua , int nbinds )
         }
         if( status != OCI_SUCCESS ){
             free( b );
-            checkerr(lua,handle->errhp,status);
+            checkerr(lua,statement->errhp,status);
             abort();
         }
-        b->next = handle->bind_buffer ;
-        handle->bind_buffer = b;
+        b->next = statement->bind_buffer ;
+        statement->bind_buffer = b;
     }
     lua_pushboolean(lua,1);
     DEBUG( printf("LEAVE: olua_bind(successfully)\n") );
@@ -653,7 +648,7 @@ static int olua_bind( lua_State *lua )
 /* olua_fetch_buffer_alloc */
 static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
     lua_State *lua ,
-    struct olua_handle *stmthp )
+    struct olua_statement *statement )
 {
     sb4 parm_status;
     dvoid *mypard;
@@ -667,9 +662,9 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
     olua_fetch_buffer_new( &dummyfirst );
 
     while( (parm_status=OCIParamGet(
-                stmthp->h.stmthp ,
-                stmthp->type ,
-                stmthp->errhp ,
+                statement->stmthp ,
+                OCI_HTYPE_STMT ,
+                statement->errhp ,
                 &mypard ,
                 ++counter )) == OCI_SUCCESS )
     {
@@ -678,7 +673,7 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
         ub4 colname_len;
 
         if( (curr->next = olua_fetch_buffer_new(NULL)) == NULL ){
-            olua_fetch_buffer_free( dummyfirst.next );
+            olua_fetch_buffer_gc( dummyfirst.next );
             luaL_error(lua,"memory allocation error(1)");
             return NULL;
         }
@@ -691,12 +686,12 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             (dvoid*)&curr->size ,
             (ub4)0 ,
             (ub4)OCI_ATTR_DATA_SIZE , 
-            stmthp->errhp
+            statement->errhp
         );
         if( status != OCI_SUCCESS ){
             DEBUG( puts("can not get datasize") );
-            olua_fetch_buffer_free(dummyfirst.next);
-            checkerr(lua,stmthp->errhp,status);
+            olua_fetch_buffer_gc(dummyfirst.next);
+            checkerr(lua,statement->errhp,status);
             return NULL;
         }
         DEBUG( printf("DATASIZE=%d\n",curr->size) );
@@ -707,11 +702,11 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             (dvoid*)&curr->type , 
             (ub4)0 ,
             (ub4)OCI_ATTR_DATA_TYPE , 
-            stmthp->errhp
+            statement->errhp
         );
         if( status != OCI_SUCCESS ){
-            olua_fetch_buffer_free(dummyfirst.next);
-            checkerr(lua,stmthp->errhp,status);
+            olua_fetch_buffer_gc(dummyfirst.next);
+            checkerr(lua,statement->errhp,status);
             return NULL;
         }
         DEBUG( printf("DATATYPE=%d\n" , curr->type ) );
@@ -725,7 +720,7 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
         }
         /* —ÌˆæŠm•Û */
         if( (curr->u.pointor = malloc(curr->size+1))==NULL ){
-            olua_fetch_buffer_free( dummyfirst.next );
+            olua_fetch_buffer_gc( dummyfirst.next );
             luaL_error(lua,"olua_fetch_buffer_alloc(): memory allocation error");
             return NULL;
         }
@@ -736,15 +731,15 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             (dvoid*)&colname ,
             &colname_len ,
             (ub4)OCI_ATTR_NAME ,
-            stmthp->errhp 
+            statement->errhp 
         );
         if( status != OCI_SUCCESS ){
-            olua_fetch_buffer_free(dummyfirst.next);
-            checkerr(lua,stmthp->errhp,status);
+            olua_fetch_buffer_gc(dummyfirst.next);
+            checkerr(lua,statement->errhp,status);
             abort();
         }
         if( (curr->name = malloc( colname_len+1 )) == NULL ){
-            olua_fetch_buffer_free( dummyfirst.next );
+            olua_fetch_buffer_gc( dummyfirst.next );
             luaL_error(lua,"olua_fetch_buffer_alloc(): memory allocation error");
             return NULL;
         }
@@ -760,9 +755,9 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
         sword status;
 
         status = OCIDefineByPos(
-            stmthp->h.stmthp ,
+            statement->stmthp ,
             &dfp ,
-            stmthp->errhp ,
+            statement->errhp ,
             ++counter ,
             curr->u.pointor ,
             curr->size ,
@@ -773,18 +768,18 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
             OCI_DEFAULT
         );
         if( status != OCI_SUCCESS ){
-            olua_fetch_buffer_free( dummyfirst.next );
-            checkerr( lua , stmthp->errhp , status );
+            olua_fetch_buffer_gc( dummyfirst.next );
+            checkerr( lua , statement->errhp , status );
             return NULL;
         }
     }
-    if( stmthp->fetch_buffer != NULL ){
-        olua_fetch_buffer_free( stmthp->fetch_buffer );
-        stmthp->fetch_buffer = NULL;
+    if( statement->fetch_buffer != NULL ){
+        olua_fetch_buffer_gc( statement->fetch_buffer );
+        statement->fetch_buffer = NULL;
     }
     
     DEBUG( printf("LEAVE olua_fetch_buffer_alloc(%p)\n",dummyfirst.next) );
-    return stmthp->fetch_buffer = dummyfirst.next;
+    return statement->fetch_buffer = dummyfirst.next;
 }
 
 /** olua_execute
@@ -795,7 +790,7 @@ static struct olua_fetch_buffer *olua_fetch_buffer_alloc(
  */
 static int olua_execute(lua_State *lua)
 {
-    struct olua_handle *stmthp = olua_tohandle(lua,-1,TNAME_STATEMENT);
+    struct olua_statement *statement = olua_tohandle(lua,-1,TNAME_STATEMENT);
     OCISvcCtx **conn;
     sword status;
     ub2 type;
@@ -808,20 +803,13 @@ static int olua_execute(lua_State *lua)
     conn = olua_tohandle(lua,-1,TNAME_CONNECTION);
     lua_pop(lua,1);
     
-    if( stmthp->h.pointor == NULL)
+    if( statement->stmthp == NULL)
         return luaL_error(lua,"olua_execute: stmt handle is nil.");
 
-    if( stmthp->type != OCI_HTYPE_STMT )
-        return luaL_error(lua,"olua_execute: stmt handle is not OCI_HTYPE_STMT");
-    
-    DEBUG( printf("statement-handle=%p\n", stmthp->h.stmthp ) );
-
-    /***/
-
-    status = OCIAttrGet(stmthp->h.stmthp, (ub4) OCI_HTYPE_STMT,
-		(dvoid *)&type, (ub4 *)0, (ub4)OCI_ATTR_STMT_TYPE, stmthp->errhp);
+    status = OCIAttrGet(statement->stmthp, (ub4) OCI_HTYPE_STMT,
+		(dvoid *)&type, (ub4 *)0, (ub4)OCI_ATTR_STMT_TYPE, statement->errhp);
     if( status != OCI_SUCCESS )
-        return checkerr(lua,stmthp->errhp,status);
+        return checkerr(lua,statement->errhp,status);
     
     if (type == OCI_STMT_SELECT)
         iters = 0;
@@ -829,22 +817,22 @@ static int olua_execute(lua_State *lua)
         iters = 1;
 
     DEBUG( puts("call OCIStmtExecute()") );
-    status = OCIStmtExecute(*conn,stmthp->h.stmthp,stmthp->errhp,iters,0,NULL,NULL,OCI_DEFAULT);
+    status = OCIStmtExecute(*conn,statement->stmthp,statement->errhp,iters,0,NULL,NULL,OCI_DEFAULT);
     if( status != OCI_SUCCESS )
-        return checkerr(lua,stmthp->errhp,status);
+        return checkerr(lua,statement->errhp,status);
     
     if( type == OCI_STMT_SELECT ){
-        olua_fetch_buffer_alloc(lua,stmthp);
+        olua_fetch_buffer_alloc(lua,statement);
         lua_pushcfunction(lua,olua_fetch);
         lua_insert(lua,-2);
         DEBUG( puts("LEAVE: olua_execute(OCI_STMT_SELECT)") );
         return 2;
     }else{
         ub4 rowcount;
-        status = OCIAttrGet(stmthp->h.stmthp, (ub4) OCI_HTYPE_STMT,
-                    (dvoid *)&rowcount, (ub4 *)0, (ub4)OCI_ATTR_ROW_COUNT, stmthp->errhp);
+        status = OCIAttrGet(statement->stmthp, (ub4) OCI_HTYPE_STMT,
+                    (dvoid *)&rowcount, (ub4 *)0, (ub4)OCI_ATTR_ROW_COUNT, statement->errhp);
         if( status != OCI_SUCCESS )
-            return checkerr(lua,stmthp->errhp,status);
+            return checkerr(lua,statement->errhp,status);
         
         DEBUG( puts("LEAVE: olua_execute(! OCI_STMT_SELECT)") );
         lua_pushinteger(lua,rowcount);
@@ -861,7 +849,7 @@ static int olua_execute(lua_State *lua)
  */
 static int olua_fetch(lua_State *lua)
 {
-    struct olua_handle *stmthp=olua_tohandle(lua,1,TNAME_STATEMENT);
+    struct olua_statement *statement=olua_tohandle(lua,1,TNAME_STATEMENT);
     struct olua_fetch_buffer *fetch_buffer=NULL;
 
     sword status;
@@ -869,27 +857,27 @@ static int olua_fetch(lua_State *lua)
 
     DEBUG( puts("ENTER: olua_fetch()") );
 
-    if( stmthp == NULL )
-        return luaL_error(lua,"error: invalid parameter(stmthp==NULL)");
+    if( statement == NULL )
+        return luaL_error(lua,"error: invalid parameter(statement==NULL)");
 
-    fetch_buffer = stmthp->fetch_buffer ;
+    fetch_buffer = statement->fetch_buffer ;
 
     status = OCIStmtFetch2(
-            stmthp->h.stmthp ,
-            stmthp->errhp ,
+            statement->stmthp ,
+            statement->errhp ,
             (ub4)1 ,
             OCI_FETCH_NEXT ,
             0 ,
             OCI_DEFAULT );
 
     if( status == OCI_NO_DATA){
-        stmthp=lua_touserdata(lua,-1);
-        olua_handle_gc(lua);
+        statement=lua_touserdata(lua,-1);
+        olua_statement_gc(lua);
         lua_pushnil(lua);
         return 1;
     }
     if( status != OCI_SUCCESS )
-        return checkerr(lua,stmthp->errhp,status);
+        return checkerr(lua,statement->errhp,status);
     
     DEBUG( puts("push fetch values") );
     DEBUG( fflush(stdout) );
