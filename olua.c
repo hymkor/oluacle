@@ -12,7 +12,7 @@
 #define TNAME_CONNECTION "oluacle.connection"
 #define TNAME_ENVIRON    "oluacle.environ"
 
-#ifdef DEBUG
+#if 0
 #  undef  DEBUG
 #  define DEBUG(x) (x,fflush(stdout))
 #else
@@ -117,6 +117,7 @@ static OCIEnv *olua_envhp(lua_State *lua)
 struct olua_bind_buffer {
     struct olua_bind_buffer *next;
     OCIBind *bind;
+    char *name;
     sb2 indicator;
     union{
         sword number;
@@ -132,6 +133,7 @@ static struct olua_bind_buffer *olua_bind_buffer_new( size_t size )
 
     p->next = NULL;
     p->bind = NULL;
+    p->name = NULL;
     p->indicator = 0;
     p->u.buffer[0] = '\0';
     return p;
@@ -141,6 +143,9 @@ static void olua_bind_buffer_gc( struct olua_bind_buffer *p )
 {
     while( p != NULL ){
         struct olua_bind_buffer *q=p->next;
+        if( p->name ){
+            free(p->name);
+        }
         free(p);
         p=q;
     }
@@ -586,7 +591,107 @@ static int olua_bind_core( lua_State *lua , int nbinds )
         DEBUG( printf("Statement-handle=%p\n",statement->stmthp) );
         struct olua_bind_buffer *b;
 
-        if( lua_toboolean(lua,sp)==0 ){ /* nil or false => NULL */
+        if( lua_istable(lua,sp) ){
+            lua_pushnil(lua);
+            while( lua_next(lua,sp-1) ){
+                const char *key; size_t key_len; char *key2;
+
+                lua_pushvalue(lua,-2);
+                key = lua_tolstring(lua,-1,&key_len);
+
+                if( key[0] == ':' ){
+                    key2 = strdup(key);
+                }else{
+                    key2 = malloc(++key_len+2);
+                    key2[0] = ':';
+                    strcpy(key2+1,key);
+                }
+
+                if( lua_toboolean(lua,-2) == 0 ){
+                    b=olua_bind_buffer_new(0);
+                    b->name = key2;
+                    b->u.buffer[0] = '\0';
+                    b->indicator = OCI_IND_NULL ;
+
+                    DEBUG( printf("BIND: %s=>NULL\n" , key2) );
+
+                    status = OCIBindByName( 
+                                statement->stmthp ,
+                                &b->bind ,
+                                statement->errhp ,
+                                b->name ,
+                                key_len ,
+                                (dvoid *)b->u.buffer , /* valuep */
+                                1 , /* value_sz */
+                                SQLT_STR , /* dty */ 
+                                &b->indicator ,
+                                NULL ,
+                                NULL ,
+                                0 ,
+                                NULL ,
+                                OCI_DEFAULT );
+
+
+                }else if( lua_isnumber(lua,-2) ){
+                    b=olua_bind_buffer_new(0);
+                    b->name = key2;
+                    b->u.number = lua_tonumber(lua,-2);
+
+                    DEBUG( printf("BIND: %s[len=%d]=>%d(number)\n" ,
+                                    key2,key_len,b->u.number) );
+
+                    status = OCIBindByName( 
+                                statement->stmthp ,
+                                &b->bind ,
+                                statement->errhp ,
+                                b->name ,
+                                -1 ,
+                                (dvoid *)&b->u.number , /* valuep */
+                                (sword)sizeof(sword) , /* value_sz */
+                                SQLT_INT , /* dty */ 
+                                &b->indicator ,
+                                NULL ,
+                                NULL ,
+                                0 ,
+                                NULL ,
+                                OCI_DEFAULT );
+                }else{
+                    size_t val_len; 
+
+                    b=olua_bind_buffer_new(val_len + 1);
+                    b->name = key2;
+                    strcpy( b->u.buffer , lua_tolstring(lua,-2,&val_len) );
+
+                    DEBUG( printf("BIND: %s=>%s(string)\n" , key2,b->u.buffer) );
+
+                    status = OCIBindByName( 
+                                statement->stmthp ,
+                                &b->bind ,
+                                statement->errhp ,
+                                b->name ,
+                                key_len ,
+                                b->u.buffer ,
+                                val_len+1 ,
+                                SQLT_STR , 
+                                &b->indicator ,
+                                NULL ,
+                                NULL ,
+                                0 ,
+                                NULL ,
+                                OCI_DEFAULT );
+                }
+                if( status != OCI_SUCCESS ){
+                    free( b );
+                    checkerr(lua,statement->errhp,status);
+                    abort();
+                }
+                b->next = statement->bind_buffer ;
+                statement->bind_buffer = b;
+
+                lua_pop(lua,2); /* drop value and key duplicated */
+            }
+            continue;
+        }else if( lua_toboolean(lua,sp)==0 ){ /* nil or false => NULL */
             b=olua_bind_buffer_new(0);
             b->indicator = OCI_IND_NULL ;
             status = OCIBindByPos( statement->stmthp , 
@@ -611,6 +716,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
             b->u.number = lua_tointeger(lua,sp);
 
             DEBUG( printf("find %d(as number)\n",b->u.number) );
+
             status = OCIBindByPos( statement->stmthp , 
                         &b->bind ,
                         statement->errhp ,
