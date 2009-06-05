@@ -1,0 +1,42 @@
+### Linux Configuration ###
+HOME=/usr/local
+OPT_INCLUDE=-I$(HOME)/include -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public/
+OPT_LIB=-llua -L$(HOME)/lib -L$(ORACLE_HOME)/lib -lz -lclntsh
+EXE=oluacle 
+DLL=oluacle.so 
+###
+
+all : $(EXE) $(DLL)
+
+# mingw standalone executable
+$(EXE) : olua.o luaone.o
+	$(CC) -o $@ $^ $(OPT_LIB)
+
+# dynamic linked library
+$(DLL) : olua.o
+	$(CC) -shared -o $@ $^ $(OPT_LIB)
+
+olua.o : olua.c
+luaone.o : luaone.c 
+
+.c.o :
+	$(CC) $(OPT_INCLUDE) -Wall -c $<
+
+clean:
+	rm *.o $(EXE) $(DLL)
+package :
+	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 $(DLL) $(EXE) test*
+
+test1: test1.lua
+	./oluacle test1.lua
+test2: test2.lua
+	./oluacle test2.lua
+test3: test3.lua
+	./oluacle test3.lua
+test4: test4.lua
+	./oluacle test4.lua
+
+memorytest:
+	./$(EXE) test1.lua 2>&1 | gawk '/ALLOC:/{ m[$$2]++ } /FREE:/{ m[$$2]-- } END{for(i in m){ if(m[i]){ print "NG:",i,m[i] }else{ print "OK:",i,m[i] }}}'
+
+# vim:set noet ts=8 sw=8:

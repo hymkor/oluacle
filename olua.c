@@ -586,10 +586,12 @@ static int olua_bind_core( lua_State *lua , int nbinds )
     sword status;
 
     for(i=0;i<nbinds;i++){
-        DEBUG( printf("try bind %d\n",i+1));
         int sp=-nbinds+i;
-        DEBUG( printf("Statement-handle=%p\n",statement->stmthp) );
         struct olua_bind_buffer *b;
+
+        DEBUG( printf("try bind %d\n",i+1));
+        DEBUG( printf("Statement-handle=%p\n",statement->stmthp) );
+
 
         if( lua_istable(lua,sp) ){
             lua_pushnil(lua);
@@ -1046,8 +1048,8 @@ static int olua_fetch(lua_State *lua)
             case SQLT_INT:
                 lua_pushinteger(lua,*fetch_buffer->u.integer);
                 break;
-            case SQLT_BDOUBLE:
-            case SQLT_BFLOAT:
+            /* case SQLT_BDOUBLE: */
+            /* case SQLT_BFLOAT: */
             case SQLT_FLT:
                 lua_pushnumber(lua,*fetch_buffer->u.number);
                 break;
