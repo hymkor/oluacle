@@ -33,16 +33,7 @@ luaone.o : luaone.c
 clean:
 	rm *.o $(EXE) $(DLL)
 package :
-	tar jcvf olua-`date +%Y%m%d%H`.tar.bz2 $(DLL) $(EXE) test*
-
-test1: test1.lua
-	./oluacle test1.lua
-test2: test2.lua
-	./oluacle test2.lua
-test3: test3.lua
-	./oluacle test3.lua
-test4: test4.lua
-	./oluacle test4.lua
+	zip -9 oluacle-`date +%Y%m%d%H`.zip $(DLL) $(EXE) Makefile.* *.c *.def sample1.lua readme.txt
 
 memorytest:
 	./$(EXE) test1.lua 2>&1 | gawk '/ALLOC:/{ m[$$2]++ } /FREE:/{ m[$$2]-- } END{for(i in m){ if(m[i]){ print "NG:",i,m[i] }else{ print "OK:",i,m[i] }}}'
