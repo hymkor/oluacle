@@ -22,7 +22,7 @@ end
 
 function drop_table(conn)
     local rc = conn:exec([[
-        drop table oluacle_test
+        drop table oluacle_test purge
     ]]);
     print("DROP TABLE OLUACLE_TEST == " .. rc )
 end
@@ -79,5 +79,5 @@ select_table(conn)
 print "DO ROLLBACK"
 conn:rollback()
 select_table(conn)
-drop_table(conn)
+-- drop_table(conn)
 conn:logoff()
