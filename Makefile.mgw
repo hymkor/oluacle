@@ -1,15 +1,17 @@
 ### Mingw Configuration ###
 ifndef ORACLE_HOME
-ORACLE_HOME=/cygdrive/c/oraclexe/app/oracle/product/10.2.0/server
+ORACLE_HOME=c:/oraclexe/app/oracle/product/10.2.0/server
 endif
+LUAPATH=../lua-5.1.4
+CC=gcc
 PREFIX=/usr/local
 CFLAGS=-mno-cygwin -Wall
 LDFLAGS=-mno-cygwin -Wl,--exclude-libs,ALL 
-INCLUDES=-I$(PREFIX)/include -I$(ORACLE_HOME)/oci/include
+INCLUDES=-I$(PREFIX)/include -I$(LUAPATH)/src -I$(ORACLE_HOME)/oci/include
 # oluacle.dll dynamic link to Lua built with 'make CC="cc -mno-cygwin" mingw'
-DLLS=-llua51 -L$(PREFIX)/lib -loci -L$(ORACLE_HOME)/oci/lib/msvc
+DLLS=-llua51 -L$(PREFIX)/lib -L$(LUAPATH)/src -loci -L$(ORACLE_HOME)/oci/lib/msvc
 # oluacle.exe static link  to Lua built with 'make CC="cc -mno-cygwin" generic'
-LIBS=-llua   -L$(PREFIX)/lib -loci -L$(ORACLE_HOME)/oci/lib/msvc
+LIBS=-llua   -L$(PREFIX)/lib -L$(LUAPATH)/src -loci -L$(ORACLE_HOME)/oci/lib/msvc
 EXE=oluacle.exe
 DLL=oluacle.dll
 ###

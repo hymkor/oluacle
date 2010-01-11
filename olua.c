@@ -8,9 +8,9 @@
 #include "lauxlib.h"
 #include "oci.h"
 
-#define TNAME_STATEMENT  "oluacle.statement"
-#define TNAME_CONNECTION "oluacle.connection"
-#define TNAME_ENVIRON    "oluacle.environ"
+#define TNAME_STATEMENT  "org.nyaos.oluacle.statement"
+#define TNAME_CONNECTION "org.nyaos.oluacle.connection"
+#define TNAME_ENVIRON    "org.nyaos.oluacle.environ"
 
 #if 0
 #  undef  DEBUG
@@ -107,9 +107,8 @@ static OCIEnv *olua_envhp(lua_State *lua)
         checkerr(lua,NULL,status);
         abort();
     }
-    lua_pushstring(lua,TNAME_ENVIRON);
     lua_pushlightuserdata(lua,envhp);
-    lua_settable(lua,LUA_REGISTRYINDEX);
+    lua_setfield(lua,LUA_REGISTRYINDEX,TNAME_ENVIRON);
 
     return envhp;
 }
@@ -402,7 +401,6 @@ int olua_connect( lua_State *lua )
     }
 
     /* member: handle */
-    lua_pushstring(lua,"handle");
     if( (conn=lua_newuserdata(lua,sizeof(struct olua_connect))) == NULL){
         OCILogoff( svchp , errhp );
         return luaL_error(lua,"memory allocation error for userdata OCISvcCtx");
@@ -412,50 +410,41 @@ int olua_connect( lua_State *lua )
 
     /* meta-table */
     if( luaL_newmetatable(lua,TNAME_CONNECTION) ){
-        lua_pushstring(lua,"__gc");
         lua_pushcfunction(lua,olua_disconnect);
-        lua_settable(lua,-3);
-        lua_pushstring(lua,"__metatable");
+        lua_setfield(lua,-2,"__gc");
         lua_pushstring(lua,TNAME_CONNECTION);
-        lua_settable(lua,-3);
+        lua_setfield(lua,-2,"__metatable");
     }
     lua_setmetatable(lua,-2);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"handle");
 
     /* method: exec */
-    lua_pushstring(lua,"exec");
     lua_pushcfunction(lua,olua_exec);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"exec");
 
     /* method: prepare */
-    lua_pushstring(lua,"prepare");
     lua_pushcfunction(lua,olua_prepare);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"prepare");
 
     /* method: commit */
-    lua_pushstring(lua,"commit");
     lua_pushcfunction(lua,olua_commit);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"commit");
 
     /* method: rollback */
-    lua_pushstring(lua,"rollback");
     lua_pushcfunction(lua,olua_rollback);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"rollback");
 
     /* method: disconnect */
-    lua_pushstring(lua,"disconnect");
     lua_pushcfunction(lua,olua_disconnect);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"disconnect");
 
     /* method: logoff */
-    lua_pushstring(lua,"logoff");
     lua_pushcfunction(lua,olua_disconnect);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"logoff");
 
     /* method: close */
-    lua_pushstring(lua,"close");
     lua_pushcfunction(lua,olua_disconnect);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"close");
 
     DEBUG( puts("successfully return 1") );
     return 1;
@@ -483,22 +472,21 @@ static int olua_prepare( lua_State *lua )
 
     /*** new statement object ***/
     lua_newtable(lua);
-    lua_pushstring(lua,"handle");
     statement = olua_statement_new( lua_newuserdata(lua,sizeof(struct olua_statement)));
     assert( statement != NULL );
 
     OCIHandleAlloc(envhp , (dvoid**)&statement->errhp , OCI_HTYPE_ERROR , 0 , NULL );
 
     if( luaL_newmetatable(lua,TNAME_STATEMENT) ){
-        lua_pushstring(lua,"__gc");/* destructor's name */
+        /* destructor */
         lua_pushcfunction(lua,olua_statement_gc); /* destructor's func */
-        lua_settable(lua,-3); /* assign destructor to meta table */
-        lua_pushstring(lua,"__metatable");
+        lua_setfield(lua,-2,"__gc"); /* assign destructor to meta table */
+
         lua_pushstring(lua,TNAME_STATEMENT);
-        lua_settable(lua,-3);
+        lua_setfield(lua,-2,"__metatable");
     }
     lua_setmetatable(lua,-2); /* assign metatable to user-object */
-    lua_settable(lua,-3);  /* assign user-object to instance */
+    lua_setfield(lua,-2,"handle");  /* assign user-object to instance */
 
     DEBUG( puts("CALL: OCIHandleAlloc") );
     status = OCIHandleAlloc(
@@ -548,29 +536,24 @@ static int olua_prepare( lua_State *lua )
      */
 
     /* method: bind */
-    lua_pushstring(lua,"bind");
     lua_pushcfunction(lua,olua_bind);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"bind");
 
     /* method: execute */
-    lua_pushstring(lua,"execute");
     lua_pushcfunction(lua,olua_execute);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"execute");
 
     /* method: fetch */
-    lua_pushstring(lua,"fetch");
     lua_pushcfunction(lua,olua_fetch);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"fetch");
 
     /* member: connection */
-    lua_pushstring(lua,"connection");
     lua_pushvalue(lua,1);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"connection");
 
     /* member: sql-string */
-    lua_pushstring(lua,"sql");
     lua_pushvalue(lua,2);
-    lua_settable(lua,-3);
+    lua_setfield(lua,-2,"sql");
 
     return 1;
 }
@@ -1133,9 +1116,7 @@ static int olua_exec(lua_State *lua)
 int luaopen_oluacle(lua_State *lua)
 {
     lua_newtable(lua);
-    lua_pushstring(lua,"new");
     lua_pushcfunction(lua,olua_connect);
-    lua_settable(lua,-3);
-    lua_setglobal(lua,"oluacle");
-    return 0;
+    lua_setfield(lua,-2,"new");
+    return 1;
 }
