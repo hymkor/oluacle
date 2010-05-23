@@ -40,7 +40,7 @@ luaone.o : luaone.c
 clean:
 	rm *.o $(EXE) $(DLL)
 package :
-	zip -9 oluacle-`date +%Y%m%d%H`.zip $(DLL) $(EXE) Makefile.* *.c *.def tstcode.lua readme*.txt
+	zip -9 oluacle-`date +%Y%m%d%H`.zip readme*.txt $(DLL) $(EXE) Makefile.* *.c *.def tstcode.lua sample*
 
 memorytest:
 	./$(EXE) test1.lua 2>&1 | gawk '/ALLOC:/{ m[$$2]++ } /FREE:/{ m[$$2]-- } END{for(i in m){ if(m[i]){ print "NG:",i,m[i] }else{ print "OK:",i,m[i] }}}'

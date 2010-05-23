@@ -1,7 +1,7 @@
 oluacle (Lua for Oracle)
 ========================
 
-Lua から Oracle-DB にアクセスするライブラリ/ツールです。
+Lua を使って、Oracle-DB にアクセスするツール・ライブラリです。
 
 Lua には LuaSQL という汎用の DB ライブラリがありますが、
 
@@ -14,10 +14,13 @@ oluacle は、SQL 発行までに必要なメソッドを new と exec の二つに抑え、非
 常に少ないステップ数でデータを操作できるライブラリです。今まで、SQL*Plus
 + awk などで行なっていた処理を、 Lua で代替することを目指しています。
 
-Windowsの場合、Lua本体のインストールは不要で、Lua インタプリタ本体を
-内蔵した単品ファイル(oluacle.exe)をコピーするだけで使えます。
+oluacle は、実行ファイルとライブラリを提供しています。
 
-
+    実行ファイル：(oluacle.exe / oluacle )
+        Lua インタプリタ内蔵。1実行ファイルをコピーするだけで使える
+    ライブラリ： (oluacle.dll / oluacle.so )
+        Lua のライブラリパスに置けば、標準の Lua インタプリタから
+        呼び出し(require)できる。
 
 サンプル
 ========
@@ -27,24 +30,26 @@ One-liner
 
 OracleXE のサンプルユーザのDBテーブル一覧を標準出力へ表示します。
 
-bash 環境からならば：
+【Windows】
+    ◇ 実行ファイルをコマンドプロンプトより：
 
-    $ lua -e 'for rs in require("oluacle").new("HR","HR"):exec("select * from tab") do print(rs.TNAME) end'
+        C:> oluacle.exe -e "for rs in oluacle.new('HR','HR',{null=''}):exec('select * from tab') do print(rs.TNAME) end"
 
-Windows のコマンドプロンプト(CMD.EXE)からは：
 
-    lua -e "for rs in require('oluacle').new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
+    ◇ ライブラリを LuaBinaries の Lua より require する。
 
-bash と CMD.EXE では引用符をひっくり返しているだけで、他は同じです。
+        C:> lua -e "for rs in require('oluacle').new('HR','HR',{null=''}):exec('select * from tab') do print(rs.TNAME) end"
 
-この他、Windows 向けには、lua のインタプリタ(lua51.dll)と oluacle.dll を
-static-link した単独実行ファイルも用意しています。これを使うと、Oracle 
-Client はインストールされているが、 lua がインストールされていない環境で
-も、oluacle を使うことができます。この場合、
 
-    oluacle.exe -e "for rs in oluacle.new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
+【Linux】
+    ◇ 実行ファイルを bash より：
 
-という呼び出し方になります。
+        $ ./oluacle -e 'for rs in oluacle.new("HR","HR","192.168.0.1:1521",{ null=""}):exec("select * from tab") do print( table.concat(rs,",") ) end'
+
+    ◇ ライブラリを rpm で導入した Lua より require する。
+
+        $ lua -e 'for rs in require("oluacle").new("HR","HR","192.168.0.1:1521",{ null=""}):exec("select * from tab") do print( table.concat(rs,",") ) end'
+
 
 
 ちょっとデカめ
@@ -52,10 +57,8 @@ Client はインストールされているが、 lua がインストールされていない環境で
 
 表領域の一覧を表示します。
 
-    if not oluacle then
-        oluacle=require 'oluacle'
-    end
-    conn=oluacle.new(arg[1],arg[2])
+ソース(dbfree.lua)：
+    conn=(oluacle or require('oluacle')).new(arg[1],arg[2])
 
     print(("%-10s %15s %15s"):format("TABLESPACE","ALLSIZE[KB]","FREESIZE[KB]"))
     print("------------------------------------------")
@@ -66,7 +69,7 @@ Client はインストールされているが、 lua がインストールされていない環境で
              FROM  sys.dba_tablespaces t,
                    sys.dba_data_files  d,
                    sys.dba_free_space  f
-             WHERE  t.TABLESPACE_NAME = d.TABLESPACE_NAME
+             WHERE  t.TABLESPACE_NAME = d.TABLESPACE_NAME 
                AND  t.TABLESPACE_NAME = f.TABLESPACE_NAME(+)
           GROUP BY t.rowid, t.TABLESPACE_NAME
           ORDER BY t.rowid
@@ -78,6 +81,7 @@ Client はインストールされているが、 lua がインストールされていない環境で
 
     conn:disconnect()
 
+実行例：
     $ lua dbfree.lua (DBAユーザ名) (パスワード)
     TABLESPACE     ALLSIZE[KB]    FREESIZE[KB]
     ------------------------------------------
@@ -88,23 +92,27 @@ Client はインストールされているが、 lua がインストールされていない環境で
     ------------------------------------------
     $
 
+
 インストール
 ============
 
-Windows Binaries
-----------------
+Windows
+-------
 
 oluacle.dll は、Lua のバイナリライブラリディレクトリ (例> C:\Program Files\Lua\
 5.1\clibs\) に置いて使います。
 
 oluacle.exe は、PATH が通っているディレクトリなら、どこに置いても構いません。
 
+
 Linux
 -----
 
-make linux し、生成した oluacle.so を /usr/local/lib/lua/5.1/ へ cp してくださ
-い。
-
+rpm コマンド、あるいは yum にて
+    lua-5.1.4-2.fc10.i386
+    lua-devel-5.1.4-2.fc10.i386
+を導入後、
+    make -f Makefile.lin してください。
 
 
 構文
@@ -132,11 +140,11 @@ oluacle.new
 
 Oracle と接続して、接続オブジェクトを返します。
 
-    conn = oluacle.new('ユーザ名','パスワード'[,'DB名'][,オプション])
+    conn = oluacle.new('ユーザ名','パスワード'[,'DB接続文字列'][,オプション])
 
-DB名、オプションは省略可能です。
+DB接続文字列、オプションは省略可能です。
 
-接続に失敗すると、ただちにエラーになるので、 pcall などでキャッチしてください。
+接続に失敗すると、ただちにエラーになるので、pcall などでキャッチしてください。
 
 オプションは { null="" } といったLuaテーブルです。現在は null の代替値を指定す
 ることしか出来ません。
@@ -264,4 +272,7 @@ oluacle (Lua for Oracle) は、フリーソフトウェアです。
     MinGW32
     Oracle 10g Express Edition
 
-不具合等はありましたら、iyahaya@nifty.com までご連絡ください。
+    Fedora 10
+    Oracle 11g Instant Client
+
+要望・バグリポート等はありましたら、iyahaya@nifty.com までご連絡ください。
