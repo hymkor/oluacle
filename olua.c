@@ -116,7 +116,10 @@ static OCIEnv *olua_envhp(lua_State *lua)
 struct olua_bind_buffer {
     struct olua_bind_buffer *next;
     OCIBind *bind;
-    char *name;
+    union {
+        char *s;
+        unsigned char *u;
+    }name;
     sb2 indicator;
     union{
         sword number;
@@ -132,7 +135,7 @@ static struct olua_bind_buffer *olua_bind_buffer_new( size_t size )
 
     p->next = NULL;
     p->bind = NULL;
-    p->name = NULL;
+    p->name.u = NULL;
     p->indicator = 0;
     p->u.buffer[0] = '\0';
     return p;
@@ -142,8 +145,8 @@ static void olua_bind_buffer_gc( struct olua_bind_buffer *p )
 {
     while( p != NULL ){
         struct olua_bind_buffer *q=p->next;
-        if( p->name ){
-            free(p->name);
+        if( p->name.s ){
+            free(p->name.s);
         }
         free(p);
         p=q;
@@ -594,7 +597,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
 
                 if( lua_toboolean(lua,-2) == 0 ){
                     b=olua_bind_buffer_new(0);
-                    b->name = key2;
+                    b->name.s = key2;
                     b->u.buffer[0] = '\0';
                     b->indicator = OCI_IND_NULL ;
 
@@ -604,7 +607,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
                                 statement->stmthp ,
                                 &b->bind ,
                                 statement->errhp ,
-                                b->name ,
+                                b->name.u ,
                                 key_len ,
                                 (dvoid *)b->u.buffer , /* valuep */
                                 1 , /* value_sz */
@@ -619,7 +622,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
 
                 }else if( lua_isnumber(lua,-2) ){
                     b=olua_bind_buffer_new(0);
-                    b->name = key2;
+                    b->name.s = key2;
                     b->u.number = lua_tonumber(lua,-2);
 
                     DEBUG( printf("BIND: %s[len=%d]=>%d(number)\n" ,
@@ -629,7 +632,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
                                 statement->stmthp ,
                                 &b->bind ,
                                 statement->errhp ,
-                                b->name ,
+                                b->name.u ,
                                 -1 ,
                                 (dvoid *)&b->u.number , /* valuep */
                                 (sword)sizeof(sword) , /* value_sz */
@@ -644,7 +647,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
                     size_t val_len; 
 
                     b=olua_bind_buffer_new(val_len + 1);
-                    b->name = key2;
+                    b->name.s = key2;
                     strcpy( b->u.buffer , lua_tolstring(lua,-2,&val_len) );
 
                     DEBUG( printf("BIND: %s=>%s(string)\n" , key2,b->u.buffer) );
@@ -653,7 +656,7 @@ static int olua_bind_core( lua_State *lua , int nbinds )
                                 statement->stmthp ,
                                 &b->bind ,
                                 statement->errhp ,
-                                b->name ,
+                                b->name.u ,
                                 key_len ,
                                 b->u.buffer ,
                                 val_len+1 ,

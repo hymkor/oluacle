@@ -1,7 +1,7 @@
 ### Linux Configuration ###
 HOME=/usr/local
 INSTANT_CLIENT=/usr/lib/oracle/11.2/client
-OPT_INCLUDE=-I$(HOME)/include -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public/ -I$(INSTANT_CLIENT)
+OPT_INCLUDE=-I$(HOME)/include -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public/ -I/usr/include/oracle/11.2/client/
 OPT_LIB=-llua -L$(HOME)/lib -L$(ORACLE_HOME)/lib -lclntsh -L$(INSTANT_CLIENT)/lib
 ### -lz 
 EXE=oluacle 
