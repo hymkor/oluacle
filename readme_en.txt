@@ -1,4 +1,4 @@
-oluacle - Lua for Oracle
+Oluacle - Lua for Oracle
 ========================
 
 'oluacle' is a library to access Oracle database.
@@ -9,6 +9,12 @@ Diffences from LuaSQL are:
 * Few Lines required to access database
 * Supports Oracle-database only.
 
+Oluacle are executable and library's set.
+
+    Executable: (oluacle.exe[Windows])
+        Include lua interpretor.
+    Library: (oluacle.dll / oluacle.so)
+        Standard Lua interpretor can include it with 'require' statement.
 
 Sample
 ======
@@ -16,21 +22,21 @@ Sample
 One-liner
 ---------
 
-Print a list of DB-user HR's tables.
+Print a list of tables which 'HR' -- Oracle Express Edition's sample user -- owns.
 
-On bash:
+[Windows]
+    - Call Excutable on command prompt:
 
-    $ lua -e 'for rs in require('oluacle').new("HR","HR"):exec("select * from tab") do print(rs.TNAME) end'
+        C:> oluacle.exe -e "for rs in oluacle.new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
 
-On CMD.EXE:
+    - On standard lua intepretor, include library:
 
-    lua.exe -e "for rs in require('oluacle').new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
+        C:> lua.exe -e "for rs in require('oluacle').new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
 
+[Linux]
+    - include library:
 
-Standalone-Version(Windows only):
-
-    oluacle.exe -e "for rs in oluacle.new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
-
+        $ lua -e 'for rs in require('oluacle').new("HR","HR"):exec("select * from tab") do print(rs.TNAME) end'
 
 
 Another sample
@@ -38,11 +44,8 @@ Another sample
 
 print a list of tablespaces
 
-    if not oluacle then
-        oluacle = require('oluacle')
-    end
-
-    conn=oluacle.new(arg[1],arg[2])
+SOURCE:
+    conn=(oluacle or require('oluacle')).new(arg[1],arg[2])
 
     print(("%-10s %15s %15s"):format("TABLESPACE","ALLSIZE[KB]","FREESIZE[KB]"))
     print("------------------------------------------")
@@ -65,8 +68,8 @@ print a list of tablespaces
 
     conn:disconnect()
 
-
-    $ lua dbfree.lua DBAusername password
+OUTPUT:
+    $ lua dbfree.lua (DBA-username) (password)
     TABLESPACE     ALLSIZE[KB]    FREESIZE[KB]
     ------------------------------------------
     SYSTEM              696320            2496
@@ -75,6 +78,20 @@ print a list of tablespaces
     USERS               921600          100416
     ------------------------------------------
     $
+
+
+Install
+=======
+
+[Windows]
+    - put oluacle.dll on Lua's library directory ,for example,
+    C:\Program Files\Lua\5.1\clibs.
+
+    - put oluacle.exe on the one directory of directories pointed %PATH%.
+
+[Linux]
+    make -f Makefile.lin
+    (requires lua-5.1.4 and devel packages)
 
 
 Syntax
@@ -88,6 +105,8 @@ to connect database.
 
     oluacle = require('oluacle')
 
+On oluacle.exe, it has not to do 'require'. The symbol 'oluacle' is used.
+
 oluacle.new
 -----------
 
@@ -95,17 +114,21 @@ Connect a Oracle-database and return connection-object.
 
     conn = oluacle.new('USERNAME','PASSWORD'[,'DBNAME'][,OPTIONTABLE])
 
+When connection failed, error occurs.
+
 OPTIONTABLE :
 
     { null=VALUE }
         Value used as NULL. default value is false.
-        You can not use nil.
+        You can not set nil.
 
 
 CONN:exec
 ---------
 
-Execute SQL.
+Execute SQL. conn is the return-value of oluacle.new
+When SQL is 'SELECT', it returns iterator and statement-handle.
+When SQL is 'INSERT','UPDATE' or 'DELETE', it returns the number of records.
 
     ITERATOR,BUFFER = conn:exec(SQL-STRING,B1,B2...)
 or
@@ -125,6 +148,10 @@ The table-variable 'rs' has values which you can access with 3-styles:
     (2) rs.COLUMNNAME1, rs.COLUMNNAME2 ...
     (3) rs["COLUMNNAME1"] , rs["COLUMNNAME2"]
 
+- NULL value is represented with 'false' by default.
+  'new' method can change it with { null=... } except for nil.
+
+- DATE value is represented with string formated 'YYYY/MM/DD HH24:MI:SS'
 
 
 CONN:commit , CONN:rollback , CONN:disconnect
@@ -150,6 +177,9 @@ This package is tested on these softwares.
     WindowsXP SP3
     Mingw
     Oracle 10g Express Edition.
+
+    Fedora 10
+    Oracle 11g Instant Client
 
 When you find bugs or have a question, please mail to iyahaya@nifty.com.
 
