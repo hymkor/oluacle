@@ -21,62 +21,6 @@ int luaone_chdir(lua_State *lua)
     return 0;
 }
 
-int luaone_bitand(lua_State *lua)
-{
-    int left=lua_tointeger(lua,1);
-    int right=lua_tointeger(lua,2);
-    if( !lua_isnumber(lua,1) || ! lua_isnumber(lua,1) ){
-        lua_pushstring(lua,"not number");
-        lua_error(lua);
-    }
-    lua_pushinteger(lua,left & right);
-    return 1;
-}
-int luaone_bitor(lua_State *lua)
-{
-    int left=lua_tointeger(lua,1);
-    int right=lua_tointeger(lua,2);
-    if( !lua_isnumber(lua,1) || ! lua_isnumber(lua,1) ){
-        lua_pushstring(lua,"not number");
-        lua_error(lua);
-    }
-    lua_pushinteger(lua,left | right);
-    return 1;
-}
-int luaone_bitxor(lua_State *lua)
-{
-    int left=lua_tointeger(lua,1);
-    int right=lua_tointeger(lua,2);
-    if( !lua_isnumber(lua,1) || ! lua_isnumber(lua,1) ){
-        lua_pushstring(lua,"not number");
-        lua_error(lua);
-    }
-    lua_pushinteger(lua,left ^ right);
-    return 1;
-}
-int luaone_rshift(lua_State *lua)
-{
-    int left=lua_tointeger(lua,1);
-    int right=lua_tointeger(lua,2);
-    if( !lua_isnumber(lua,1) || ! lua_isnumber(lua,1) ){
-        lua_pushstring(lua,"not number");
-        lua_error(lua);
-    }
-    lua_pushinteger(lua,left >> right);
-    return 1;
-}
-int luaone_lshift(lua_State *lua)
-{
-    int left=lua_tointeger(lua,1);
-    int right=lua_tointeger(lua,2);
-    if( !lua_isnumber(lua,1) || ! lua_isnumber(lua,1) ){
-        lua_pushstring(lua,"not number");
-        lua_error(lua);
-    }
-    lua_pushinteger(lua,left << right);
-    return 1;
-}
-
 int luaone_readdir(lua_State *lua)
 {
     void *userdata;
@@ -155,11 +99,6 @@ static struct luaone_s {
 } luaone[] = {
     { "chdir" , luaone_chdir } ,
     { "dir"   , luaone_opendir },
-    { "bitand", luaone_bitand },
-    { "bitor" , luaone_bitor },
-    { "bitxor", luaone_bitxor },
-    { "rshift", luaone_rshift },
-    { "lshift", luaone_lshift },
     { "new"   , olua_connect },
     { NULL    , NULL } ,
 };
