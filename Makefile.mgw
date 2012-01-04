@@ -4,9 +4,9 @@ ORACLE_HOME=c:/oraclexe/app/oracle/product/10.2.0/server
 endif
 
 # Lua source path: expected to be built with 'make generic'.
-LUASRCPATH=../lua-5.1.4/src
+LUASRCPATH=../lua-5.2.0/src
 # Lua binary path: expected to be Lua binary's one, or to be built 'make mingw'.
-LUABINPATH="c:/Program Files/Lua/5.1"
+LUABINPATH="c:/Program Files/Lua/5.2"
 
 CC=gcc
 PREFIX=/usr/local
@@ -14,7 +14,7 @@ CFLAGS=-mno-cygwin -Wall
 LDFLAGS=-mno-cygwin -Wl,--exclude-libs,ALL 
 INCLUDES=-I$(PREFIX)/include -I$(LUASRCPATH) -I$(ORACLE_HOME)/oci/include
 # oluacle.dll dynamic link to Lua built with 'make CC="cc -mno-cygwin" mingw'
-DLLS=-llua51 -L$(LUABINPATH) -loci -L$(ORACLE_HOME)/oci/lib/msvc
+DLLS=-llua52 -L$(LUABINPATH) -loci -L$(ORACLE_HOME)/oci/lib/msvc
 # oluacle.exe static link  to Lua built with 'make CC="cc -mno-cygwin" generic'
 LIBS=-llua -L$(PREFIX)/lib -L$(LUASRCPATH) -loci -L$(ORACLE_HOME)/oci/lib/msvc
 EXE=oluacle.exe

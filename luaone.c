@@ -258,7 +258,7 @@ int main(int argc, char **argv)
             }else{
                 (ungetc)(c,fp);
             }
-            rv = lua_load(lua,cmdloader,fp,argv[argp]);
+            rv = lua_load(lua,cmdloader,fp,argv[argp],NULL);
             fclose(fp);
             if( rv != 0 )
                 goto errpt;
