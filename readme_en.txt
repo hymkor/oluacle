@@ -84,14 +84,12 @@ Install
 =======
 
 [Windows]
-    - put oluacle.dll on Lua's library directory ,for example,
-    C:\Program Files\Lua\5.1\clibs.
-
-    - put oluacle.exe on the one directory of directories pointed %PATH%.
+    - put oluacle.dll and oluacle.exe on the one directory of 
+      directories pointed %PATH%.
 
 [Linux]
     make -f Makefile.lin
-    (requires lua-5.1.4 and devel packages)
+    (requires lua-5.2.0)
 
 
 Syntax

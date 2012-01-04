@@ -99,19 +99,13 @@ OracleXE のサンプルユーザのDBテーブル一覧を標準出力へ表示します。
 Windows
 -------
 
-oluacle.dll は、Lua のバイナリライブラリディレクトリ (例> C:\Program Files\Lua\
-5.1\clibs\) に置いて使います。
-
-oluacle.exe は、PATH が通っているディレクトリなら、どこに置いても構いません。
+oluacle.dll、oluacle.exe を PATH が通っているディレクトリに配置してください。
 
 
 Linux
 -----
 
-rpm コマンド、あるいは yum にて
-    lua-5.1.4-2.fc10.i386
-    lua-devel-5.1.4-2.fc10.i386
-を導入後、
+Lua 5.2 を導入後、
     make -f Makefile.lin してください。
 
 
@@ -188,6 +182,7 @@ conn:commit , conn:rollback , conn:disconnect
 
   * Lua関係
       + Lua 5.1 リファレンスマニュアル
+      + Lua 5.2 リファレンスマニュアル
   * Oracle Call Interface
       + Amazon.co.jp： OracleC/C++実践入門 (DBMagazine SELECTION): 笠原規男: 本
       + Oracle Call Interfaceプログラマーズ・ガイド 10gリリース2（10.2）
@@ -248,6 +243,8 @@ conn:commit , conn:rollback , conn:disconnect
         うにした。
   * 20100523
       + 再パッケージング・ドキュメント整備
+  * 20120104
+      + Lua 5.2 対応
 
 連絡先
 ======
