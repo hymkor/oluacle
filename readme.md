@@ -1,7 +1,7 @@
 Oluacle - Lua for Oracle
 ========================
 
-'oluacle' is a library to access Oracle database.
+`oluacle` is a library to access Oracle database.
 
 Diffences from LuaSQL are:
 
@@ -11,10 +11,10 @@ Diffences from LuaSQL are:
 
 Oluacle are executable and library's set.
 
-    Executable: (oluacle.exe[Windows])
-        Include lua interpretor.
-    Library: (oluacle.dll / oluacle.so)
-        Standard Lua interpretor can include it with 'require' statement.
+* Executable: (oluacle.exe[Windows])
+    * Include lua interpretor.
+* Library: (oluacle.dll / oluacle.so)
+    * Standard Lua interpretor can include it with 'require' statement.
 
 Sample
 ======
@@ -22,21 +22,23 @@ Sample
 One-liner
 ---------
 
-Print a list of tables which 'HR' -- Oracle Express Edition's sample user -- owns.
+Print a list of tables which `HR` -- Oracle Express Edition's sample user -- owns.
 
-[Windows]
-    - Call Excutable on command prompt:
+### Windows
 
-        C:> oluacle.exe -e "for rs in oluacle.new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
+Call Excutable on command prompt:
 
-    - On standard lua intepretor, include library:
+    C:> oluacle.exe -e "for rs in oluacle.new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
 
-        C:> lua.exe -e "for rs in require('oluacle').new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
+- On standard lua intepretor, include library:
 
-[Linux]
-    - include library:
+    C:> lua.exe -e "for rs in require('oluacle').new('HR','HR'):exec('select * from tab') do print(rs.TNAME) end"
 
-        $ lua -e 'for rs in require('oluacle').new("HR","HR"):exec("select * from tab") do print(rs.TNAME) end'
+### Linux
+
+include library:
+
+    $ lua -e 'for rs in require('oluacle').new("HR","HR"):exec("select * from tab") do print(rs.TNAME) end'
 
 
 Another sample
@@ -44,7 +46,8 @@ Another sample
 
 print a list of tablespaces
 
-SOURCE:
+### SOURCE:
+
     conn=(oluacle or require('oluacle')).new(arg[1],arg[2])
 
     print(("%-10s %15s %15s"):format("TABLESPACE","ALLSIZE[KB]","FREESIZE[KB]"))
@@ -68,7 +71,8 @@ SOURCE:
 
     conn:disconnect()
 
-OUTPUT:
+### OUTPUT
+
     $ lua dbfree.lua (DBA-username) (password)
     TABLESPACE     ALLSIZE[KB]    FREESIZE[KB]
     ------------------------------------------
@@ -83,11 +87,13 @@ OUTPUT:
 Install
 =======
 
-[Windows]
-    - put oluacle.dll and oluacle.exe on the one directory of 
-      directories pointed %PATH%.
+### Windows
 
-[Linux]
+- put oluacle.dll and oluacle.exe on the one directory of 
+  directories pointed %PATH%.
+
+### Linux
+
     make -f Makefile.lin
     (requires lua-5.2.0)
 
@@ -129,7 +135,9 @@ When SQL is 'SELECT', it returns iterator and statement-handle.
 When SQL is 'INSERT','UPDATE' or 'DELETE', it returns the number of records.
 
     ITERATOR,BUFFER = conn:exec(SQL-STRING,B1,B2...)
+
 or
+
     ITERATOR,BUFFER = conn:exec(SQL-STRING,{V1=B1,V2=B2...} )
 
 B1,B2 are values for bind-variables. V1,V2 are names of bind-variables.
@@ -155,8 +163,8 @@ The table-variable 'rs' has values which you can access with 3-styles:
 CONN:commit , CONN:rollback , CONN:disconnect
 ---------------------------------------------
 
-CONN:commit() does commit database.
-CONN:disconnect() rolls back database and disconnect.
+`CONN:commit()` does commit database.
+`CONN:disconnect()` rolls back database and disconnect.
 When CONN is collected as garbage, CONN:disconnect is called. 
 
 
@@ -172,12 +180,12 @@ Bug report
 
 This package is tested on these softwares.
 
-    WindowsXP SP3
-    Mingw
-    Oracle 10g Express Edition.
+* WindowsXP SP3
+* Mingw
+* Oracle 10g Express Edition.
 
-    Fedora 10
-    Oracle 11g Instant Client
+* Fedora 10
+* Oracle 11g Instant Client
 
 When you find bugs or have a question, please mail to iyahaya@nifty.com.
 
