@@ -187,6 +187,4 @@ This package is tested on these softwares.
 * Fedora 10
 * Oracle 11g Instant Client
 
-When you find bugs or have a question, please mail to iyahaya@nifty.com.
-
 You can copy and modify oluacle with MIT License.

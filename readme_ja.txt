@@ -257,11 +257,7 @@ oluacle (Lua for Oracle) は、フリーソフトウェアです。
 
 最新版のバイナリ・ソースは、下記ＵＲＬからダウンロード可能です。
 
-    http://forgot.uh-oh.jp/doc/index.cgi?p=oluacle
-
-質問・バグリポート・提案がございましたら、以下までご連絡ください。
-
-    iyahaya@nifty.com
+    https://github.com/hymkor/oluacle/releases
 
 このパッケージは、以下の環境で動作を確認しています。
 
@@ -271,5 +267,3 @@ oluacle (Lua for Oracle) は、フリーソフトウェアです。
 
     Fedora 10
     Oracle 11g Instant Client
-
-要望・バグリポート等はありましたら、iyahaya@nifty.com までご連絡ください。
